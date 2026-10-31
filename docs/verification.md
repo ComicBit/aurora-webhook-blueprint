@@ -39,6 +39,12 @@ Only the native host received process-level verification; cross-compilation
 does not establish runtime behavior on the other targets. Release checksums
 are published separately from the unsigned binaries.
 
+Hosted CI was configured for macOS and Linux, but the
+[initial run](https://github.com/ComicBit/aurora-webhook-blueprint/actions/runs/41219953078)
+was blocked by account-level runner admission before any steps executed.
+It is not a passing CI run; Linux runtime checks remain unverified. Resolve
+the account restriction and rerun the workflow before relying on hosted gates.
+
 ## Synthetic delivery helper
 
 The actual `scripts/send-synthetic.py` process was exercised against an owned
