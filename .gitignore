@@ -1,0 +1,16 @@
+# Local configuration, secrets, transcript data, and task evidence
+.env
+.env.*
+!.env.example
+/config.local.json
+/config.json
+/aurora-webhook
+/data/
+/artifacts/
+/temp/
+/bin/
+*.db
+*.db-shm
+*.db-wal
+*.bolt
+.DS_Store

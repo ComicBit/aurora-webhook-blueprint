@@ -1,0 +1,9 @@
+{
+  "listen": "127.0.0.1:8787",
+  "data_dir": "./data",
+  "max_pending": 100,
+  "max_storage_bytes": 268435456,
+  "retention_days": 7,
+  "max_concurrent_requests": 8,
+  "worker": {}
+}
