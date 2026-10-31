@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased
+
+- Reworked the README around Aurora, concrete workflow outcomes and distinct
+  agent-guided/manual setup paths, informed by ten highly starred GitHub READMEs.
+- Added a dedicated getting-started guide and verified website/waitlist links.
+  TestFlight remains invitation-only; no public install or App Store link is advertised.
+
 ## 0.1.0 — 2026-10-31
 
 - Initial standalone private-ingress Aurora webhook inbox with durable delivery,

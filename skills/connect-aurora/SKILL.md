@@ -14,9 +14,10 @@ settings UX and future copy-prompt button are deferred app work.
 ## Read only what the decision needs
 
 Find the repository root relative to this skill: `../../`. Read its README for
-commands and configuration. Read `docs/payload.md` before selecting fields or
-mapping tasks; `docs/networking.md` for ingress; `docs/agents.md` before choosing
-or invoking a model runtime; `docs/security.md` before enabling processing.
+the overview and `docs/getting-started.md` for commands and configuration. Read
+`docs/payload.md` before selecting fields or mapping tasks; `docs/networking.md`
+for ingress; `docs/agents.md` before choosing or invoking a model runtime;
+`docs/security.md` before enabling processing.
 All those paths are relative to the repository root. If the skill was copied
 without the repository, obtain the public kit from
 https://github.com/ComicBit/aurora-webhook-blueprint and read those files there;
