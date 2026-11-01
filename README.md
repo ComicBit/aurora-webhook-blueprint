@@ -87,7 +87,7 @@ Use the **[getting-started guide](docs/getting-started.md)** for the complete
 signed, database-only setup, a synthetic delivery check and an optional folder
 destination.
 
-Build the current **Rust 0.2.0 source** with Rust 1.98 and a native C toolchain
+Build the current **Rust 0.2.1 source** with Rust 1.98 and a native C toolchain
 (SQLite is bundled):
 
 ```sh
@@ -99,13 +99,16 @@ target/release/aurora-webhook --config config.local.json plan
 target/release/aurora-webhook --config config.local.json apply --approve
 ```
 
-Then supply your signing secret and start `serve` as described in the guide.
+Then copy Aurora's signing secret into a protected local `.env`, generate a
+separate bearer token, and start `serve` as described in the guide.
 `plan` only reviews configuration; `apply` initializes or activates it with the
 receiver stopped. Neither sends historical meetings.
 
-**Prefer a binary?** The [Rust 0.2.0 preview](https://github.com/ComicBit/aurora-webhook-blueprint/releases/tag/v0.2.0)
-includes a native-tested **macOS arm64** bundle and checksums. It is unsigned;
-see the [prebuilt setup](docs/getting-started.md#prebuilt-macos-arm64-preview).
+**Prefer a binary?** The [Rust 0.2.1 preview](https://github.com/ComicBit/aurora-webhook-blueprint/releases/tag/v0.2.1)
+includes the native-tested macOS arm64 CLI and setup resources.
+The older [0.2.0 macOS arm64 preview](https://github.com/ComicBit/aurora-webhook-blueprint/releases/tag/v0.2.0)
+does **not** load `.env` or provide `token-gen`. See the
+[prebuilt setup](docs/getting-started.md#prebuilt-macos-arm64-preview).
 Existing [v0.1.0 downloads](https://github.com/ComicBit/aurora-webhook-blueprint/releases/tag/v0.1.0)
 are the earlier Go receiver. Do not mix their configuration or commands;
 [migrate retained history explicitly](docs/getting-started.md#migrate-from-the-go-010-inbox).

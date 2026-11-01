@@ -1,9 +1,43 @@
 # Verification evidence
 
-Evidence is version-specific. **Rust 0.2.0 source is not the Go 0.1.0 binary.**
-A configured workflow, source review, local preflight or process double does
-not establish a passing native build, actual model behavior or device delivery.
-All historical receiver checks below used synthetic content, not real meetings.
+Evidence is version-specific. **Current Rust 0.2.1 source is not the historical
+0.2.0 Rust or Go 0.1.0 binary.** Each record retains its own scope. A configured
+workflow, local preflight or process double does not establish a passing hosted
+build, actual model behavior or device delivery.
+
+## Rust 0.2.1 credential verification
+
+Native checks ran on **macOS arm64**, with Rust/Cargo 1.98.1:
+
+- `cargo test --locked`: **47 passed**—the original 38 regressions plus nine
+  isolated subprocess contracts for dotenv selection, independent signing/
+  bearer enforcement, precedence, generator independence, admin availability,
+  file security, redacted errors and non-execution of shell substitutions.
+- Strict Clippy (`--all-targets -- -D warnings`), Rustfmt and the optimized
+  release build passed.
+- **Nine compiled-binary credential scenarios** independently exercised the
+  generated bearer, config-adjacent and explicit files, both required
+  credentials, restart-only reload, retained deduplication, inherited overrides,
+  absent explicit/implicit files, unsafe-file rejection and error redaction.
+  These used disposable credentials and fictional connectivity events.
+- The revised skill and isolated previous revision were compared across four
+  scenarios each. Local resource links and the single copyable prompt block
+  were checked; see [skill evaluation](skill-evaluation.md).
+
+An authorized private Mac deployment was upgraded without changing its approved
+destination configuration or existing Tailscale Serve routes. A private inbox
+backup preceded the upgrade. Both credentials were loaded from an ignored
+owned 0600 `.env`, not a service environment export. HTTPS certificate
+verification remained enabled. A fictional signed connectivity request with
+the correct bearer returned **204**; a missing/wrong bearer or incorrect
+signature returned **401**. Duplicate delivery retained one receipt and created
+no outward work. The credential-sync/restart helper was also exercised.
+
+This private HTTPS check is not an independent iOS/macOS app test, an audit of
+tailnet grants or a production restore test. The user-reported app check below
+predates enabling the new bearer credential; that app setting must be updated
+before claiming the revised configuration works from the device. No new real
+provider, Linux, other-architecture or hosted-CI qualification is implied.
 
 ## Rust 0.2.0 native verification
 
@@ -103,11 +137,18 @@ The current onboarding entrypoint and references are available in this source
 tree. Historical evaluations and the revised Rust comparison are recorded in
 [skill evaluation](skill-evaluation.md), separately from runtime evidence.
 
-## Not verified
+## User-reported app check
 
-- Actual Aurora Send test or meeting delivery on iOS or macOS.
-- Active private VPN routing, HTTPS trust, Tailscale Serve, grants, reboot,
-  unattended supervision or host power behavior. No identity/policy was changed.
+The user reported a successful manual Aurora app test after correcting the
+endpoint URL. The platform was not specified. This is a user report, not a
+new independently measured iOS/macOS, VPN, provider or Linux qualification.
+
+## Not independently verified
+
+- Platform-specific Aurora Send test or meeting delivery on iOS and macOS.
+- Device-side private VPN routing, effective tailnet grants, cold-boot/
+  unattended supervision or host power behavior. The Mac-side private HTTPS
+  checks above do not establish those properties.
 - Real Claude/Codex/Hermes inference or authentication; actual new-task/saved-
   session/cloud follow-up behavior; effective tools/managed policy, provider
   persistence or real model result semantics.
@@ -120,8 +161,8 @@ tree. Historical evaluations and the revised Rust comparison are recorded in
   prompt-injection immunity, compliance certification, production backup
   restoration or platform-independent filesystem isolation.
 
-Real provider/device/VPN checks were not authorized for this implementation
-turn and must not be inferred from synthetic checks. Use zero-outward Send
-test first, then a deliberate fictional meeting on the approved route before
-real content/automatic export. Aurora changes remain separate release work
-in the [payload notes](payload.md).
+Real provider/device/VPN checks were not authorized in the historical
+implementation turn above and must not be inferred from those synthetic checks.
+Use zero-outward Send test first, then a deliberate fictional meeting on the
+approved route before real content/automatic export. Aurora changes remain
+separate release work in the [payload notes](payload.md).

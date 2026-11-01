@@ -1,5 +1,6 @@
 mod config;
 mod dispatch;
+mod env_file;
 mod exports;
 mod intake;
 mod model;
@@ -25,13 +26,18 @@ use store::{Mode, Store};
 struct Cli {
     #[arg(long, global = true, default_value = "config.json")]
     config: PathBuf,
+    /// Load a private dotenv file for serve/doctor instead of .env beside --config.
+    #[arg(long, global = true)]
+    env_file: Option<PathBuf>,
     #[command(subcommand)]
     command: Command,
 }
 #[derive(Subcommand)]
 enum Command {
-    /// Generate a new signing key. Output is sensitive; never put it in Git or shared logs.
+    /// Generate a synthetic/receiver signing key, NOT Aurora's app-generated delivery key.
     Keygen,
+    /// Generate a separate bearer token to paste into Aurora Authentication > Bearer.
+    TokenGen,
     /// Review the proposed configuration without activating anything.
     Plan,
     /// Initialize/apply the reviewed configuration, with the receiver stopped.
@@ -139,24 +145,47 @@ fn timestamp(value: &str) -> Result<i64> {
             .unix_timestamp(),
     )
 }
-#[tokio::main]
-async fn main() {
-    if let Err(error) = run(Cli::parse()).await {
+fn main() {
+    if let Err(error) = start(Cli::parse()) {
         eprintln!("{error}");
         std::process::exit(1);
     }
 }
-async fn run(cli: Cli) -> Result<()> {
-    if matches!(cli.command, Command::Keygen) {
-        use base64::{Engine, engine::general_purpose::STANDARD};
+fn start(cli: Cli) -> Result<()> {
+    if matches!(cli.command, Command::Keygen | Command::TokenGen) {
+        use base64::{
+            Engine,
+            engine::general_purpose::{STANDARD, URL_SAFE_NO_PAD},
+        };
         let mut key = [0u8; 32];
         std::fs::File::open("/dev/urandom")?.read_exact(&mut key)?;
-        println!("whsec_{}", STANDARD.encode(key));
+        if matches!(cli.command, Command::Keygen) {
+            println!("whsec_{}", STANDARD.encode(key));
+        } else {
+            println!("{}", URL_SAFE_NO_PAD.encode(key));
+        }
         return Ok(());
     }
+    if matches!(cli.command, Command::Serve | Command::Doctor) {
+        let variables = env_file::read(&cli.config, cli.env_file.as_deref())?;
+        // SAFETY: this is synchronous process startup, before constructing Tokio or
+        // spawning any threads. The complete file and all entries were validated
+        // before mutation; inherited variables (including empty ones) win.
+        for (key, value) in variables {
+            if std::env::var_os(&key).is_none() {
+                unsafe { std::env::set_var(key, value) };
+            }
+        }
+    }
+    tokio::runtime::Builder::new_multi_thread()
+        .enable_all()
+        .build()?
+        .block_on(run(cli))
+}
+async fn run(cli: Cli) -> Result<()> {
     let cfg = Config::load(&cli.config)?;
     match cli.command {
-        Command::Keygen => unreachable!(),
+        Command::Keygen | Command::TokenGen => unreachable!(),
         Command::Plan => print_json(
             &serde_json::json!({"config_digest":cfg.digest()?,"configuration":cfg,"warning":"Review destination content disclosure, target mode and authority. Apply never sends historical content automatically. Folder copies and provider histories have separate retention."}),
         ),

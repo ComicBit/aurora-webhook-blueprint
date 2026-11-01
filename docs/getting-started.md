@@ -2,8 +2,8 @@
 
 Start with a private inbox, then add a folder or an approved agent destination.
 **The default makes no model call.** You do not need a model account to receive
-and inspect events. This guide is for the Rust **0.2.0 source**, not the older
-Go 0.1.0 release binaries.
+and inspect events. This guide is for the Rust **0.2.1 source**, not older
+0.2.0 Rust binaries or Go 0.1.0 release binaries.
 
 ## What you need
 
@@ -24,15 +24,15 @@ and automatic export are separate decisions, not prerequisites for it.
 
 ## Prebuilt macOS arm64 preview
 
-The [Rust 0.2.0 preview release](https://github.com/ComicBit/aurora-webhook-blueprint/releases/tag/v0.2.0)
-provides `aurora-webhook-v0.2.0-darwin-arm64.tar.gz` and `SHA256SUMS`. Download
-both into a trusted directory, verify the checksum, then extract into a new
-directory:
+The [Rust 0.2.1 preview](https://github.com/ComicBit/aurora-webhook-blueprint/releases/tag/v0.2.1)
+includes the CLI and setup resources for macOS arm64. Download
+`aurora-webhook-v0.2.1-darwin-arm64.tar.gz` and `SHA256SUMS` into a trusted
+directory, verify the checksum, then extract into a new directory:
 
 ```sh
 shasum -a 256 -c SHA256SUMS
 mkdir aurora-preview
-tar -xzf aurora-webhook-v0.2.0-darwin-arm64.tar.gz -C aurora-preview
+tar -xzf aurora-webhook-v0.2.1-darwin-arm64.tar.gz -C aurora-preview
 cd aurora-preview/aurora-webhook
 cp config.example.json config.local.json
 ./aurora-webhook --config config.local.json plan
@@ -47,8 +47,10 @@ above; this prebuilt path does not.
 The binary is **unsigned and not notarized**. Checksums detect corruption;
 they do not constitute a publisher signature. Follow your Mac's security
 policy or build from the tagged source rather than blindly bypassing a
-quarantine warning. Linux and other architectures have no native-qualified
-Rust bundle in this release. Old v0.1.0 bundles are Go, not this Rust build.
+quarantine warning. Consult [verification evidence](verification.md) for measured
+qualification; no Linux or other-architecture qualification is implied here.
+The historical 0.2.0 macOS arm64 preview does not implement `.env` loading or
+`token-gen`. Old v0.1.0 bundles are Go, not this Rust build.
 
 ## 1. Build and initialize a database-only inbox
 
@@ -78,42 +80,90 @@ private; paths containing symlinks are rejected. Use real paths (for example
 `--config` is a global option: it may precede or follow the subcommand. The
 examples consistently put it first. If omitted, the file is `config.json`.
 
-## 2. Supply the signing secret and start
+## 2. Capture Aurora's signing secret and a separate bearer token
 
-Use the same key in Aurora and the receiver: `whsec_` plus base64-encoded
-**32 random bytes** (bare base64 is also accepted). Do not put it in Git,
-shared logs, screenshots, command arguments or literal shell history. For a
-temporary interactive **Bash** session with an existing app key:
+Use both protections. Signing verifies the exact body's authenticity/integrity
+and timestamp freshness (±5 minutes); bearer authentication is a separate shared
+authorization credential. Neither establishes participant consent. **This
+receiver requires signing.** If you decline signing, stop app setup rather than
+silently disabling verification.
+
+In Aurora's webhook settings, use **Signing secret → Generate** only if the app
+has no key, then **Copy**. Aurora is the source of truth: do not generate a
+replacement receiver key and assume the app will use it. The receiver accepts
+`whsec_` plus base64-encoded 32 bytes (or bare base64).
+
+With your approval, store both credentials in an ignored private `.env` beside
+`config.local.json`. `.env.example` is a tracked placeholder reference, not a
+credential store. Use a trusted local editor or protected masked input/credential
+catalog where available; never put either secret into chat, command arguments,
+Git, shared logs or screenshots. A local editor can still create swap/backup
+copies: review its behavior and keep the directory outside shared/synced folders.
+
+For a new file, this interactive **Bash** example captures the app key and
+generates a distinct CSPRNG 32-byte URL-safe, unpadded base64 bearer token without
+printing either. Run it only after approving local credential storage; it
+refuses to overwrite an existing file:
+
+```bash
+(
+  umask 077
+  set -o noclobber
+  read -r -s -p 'Copy signing secret from Aurora: ' signing
+  printf '\n'
+  bearer="$(target/release/aurora-webhook token-gen)" || exit
+  printf 'AURORA_WEBHOOK_SECRET=%s\nAURORA_BEARER_TOKEN=%s\n' \
+    "$signing" "$bearer" > .env || exit
+)
+```
+
+The file must be owned by your account, regular, single-link and exactly 0600,
+with no symlinks or untrusted-writer ancestors. Private permissions are not
+encryption or protection from same-user processes. Protect OS storage, backups
+and clipboard history too. Using a protected local editor/catalog, copy **only**
+`AURORA_BEARER_TOKEN`'s value into Aurora **Authentication → Bearer**. Do not paste
+the signing secret there. Clear the clipboard when done.
+
+```sh
+target/release/aurora-webhook --config config.local.json doctor
+target/release/aurora-webhook --config config.local.json serve
+```
+
+In 0.2.1, only `serve` and `doctor` load `.env` automatically, from **beside the
+selected config**, not a recursive search of the current directory. A missing
+implicit `.env` is optional; an explicit global `--env-file PATH` must exist:
+
+```sh
+target/release/aurora-webhook --config config.local.json \
+  --env-file /absolute/private/receiver.env serve
+```
+
+The whole valid file is parsed before changing the environment, before runtime
+threads start; it is never shell-sourced or executed. Reads are bounded to 64 KiB.
+Inherited process variables take precedence, so stale exported credentials can
+override edits to `.env`. Restart the receiver after credential changes; there
+is no per-request reload. Adapter variables in the same file work through the
+loaded process environment, with the existing adapter allowlists unchanged.
+Other commands do not load `.env`; administration still needs its configuration
+and inbox. `token-gen` and `keygen` need neither configuration nor credentials.
+`keygen` is only for isolated synthetic/receiver tooling, never app signing-key
+setup. Existing 0.2.0 binaries lack this dotenv feature.
+
+## 3. Check delivery with fictional content
+
+The Python helper reads **process environment only**, not the receiver's `.env`.
+In a second interactive Bash terminal, securely copy the same two values from
+their protected source (do not shell-source `.env`):
 
 ```bash
 read -r -s -p 'Webhook signing secret: ' AURORA_WEBHOOK_SECRET
 printf '\n'
-export AURORA_WEBHOOK_SECRET
-target/release/aurora-webhook --config config.local.json serve
+read -r -s -p 'Bearer token: ' AURORA_BEARER_TOKEN
+printf '\n'
+export AURORA_WEBHOOK_SECRET AURORA_BEARER_TOKEN
 ```
 
-For an isolated local trial, generate a temporary key without printing it:
-
-```sh
-export AURORA_WEBHOOK_SECRET="$(target/release/aurora-webhook keygen)"
-target/release/aurora-webhook --config config.local.json serve
-```
-
-A generated key does not configure Aurora. To reuse it in a second terminal,
-transfer it through a protected method; exported variables are not shared
-between terminals. For persistent service use, provision protected service
-credentials instead of an interactive shell.
-
-If Aurora uses optional bearer authentication, also set the matching
-`AURORA_BEARER_TOKEN` (32–4096 bytes, no whitespace). See
-[`.env.example`](../.env.example). The receiver does **not** load dotenv files
-automatically. `keygen`, `plan` and `apply` do not require the webhook secret;
-`serve` does.
-
-## 3. Check delivery with fictional content
-
-In a second terminal at the repository root, securely supply the **same** key
-(and bearer token, if enabled), then run:
+Then run:
 
 ```sh
 python3 scripts/send-synthetic.py --test
@@ -195,19 +245,26 @@ Follow the [private networking guide](networking.md). Keep an existing trusted
 VPN if it provides reachable HTTPS DNS and trusted TLS. If you need private
 connectivity, use approved Tailscale **Serve**—never Funnel or a public tunnel.
 Installation, sign-in, HTTPS and access-policy changes need authorization.
-With Tailscale already approved/configured and the receiver running:
+Inspect existing Serve routes first. Never overwrite another service's route.
+If the default HTTPS port is occupied, choose an explicit free port as described
+in the networking guide. With Tailscale approved/configured and an unused 443:
 
 ```sh
-tailscale serve --bg http://127.0.0.1:8787
+tailscale serve status
+tailscale serve --bg --https=443 http://127.0.0.1:8787
 tailscale serve status
 ```
 
-Set Aurora's endpoint to the reported HTTPS hostname plus `/webhooks/aurora`.
-A `https://…ts.net` source-accepted URL is not proof of real delivery. Keep
-signing enabled, select the minimum content scope and use **Send test** from
-the actual sending device on the intended VPN. Then send one deliberate
-fictional meeting before considering automatic export. Test each intended
-platform: iPhone delivery does not prove a Mac app path.
+Set Aurora's endpoint to the **full reported HTTPS hostname, port and path**:
+`https://<machine>.<tailnet>.ts.net:443/webhooks/aurora` (or your chosen port).
+Do not guess it or omit `/webhooks/aurora`. `GET /healthz` is a health check;
+Aurora sends `POST /webhooks/aurora`. A **405** suggests a route/method mismatch,
+not a reason to rotate credentials; a **401** on the correct POST suggests
+checking the copied signing/bearer values and timestamp. Never disable
+protections to troubleshoot. A source-accepted URL is not delivery proof.
+Select the minimum content scope and use **Send test** from the actual sending
+device on the intended VPN. Then send one deliberate fictional meeting before
+considering automatic export. Test each intended platform separately.
 
 Serve does not start the receiver or keep the host awake. Certificate issuance
 publishes the hostname in Certificate Transparency logs. Private ingress is not

@@ -28,25 +28,44 @@ a certificate: the full certificate hostname is published in public Certificate
 Transparency logs. This exposes name metadata, not the webhook body, and does
 not make the service public.
 
-Start the receiver bound to `127.0.0.1:8787`, then run:
+Start the receiver bound to `127.0.0.1:8787`. Inspect routes **before** changing
+Serve; never reset or overwrite existing services:
 
 ```sh
-tailscale serve --bg http://127.0.0.1:8787
 tailscale serve status
 ```
 
-Use the actual hostname reported by Serve, with this path:
+If HTTPS 443 is free and authorized:
 
-```text
-https://<machine>.<tailnet>.ts.net/webhooks/aurora
+```sh
+tailscale serve --bg --https=443 http://127.0.0.1:8787
+tailscale serve status
 ```
 
-Serve defaults to HTTPS and proxies to the loopback HTTP backend. `--bg`
-persists Serve configuration across Tailscale restarts/reboots; it does **not**
-start or supervise the receiver. Have an authorized administrator restrict
-TCP 443 access to the intended sending identities/devices. Grants are additive:
-adding a narrow rule does not override an existing broad grant or ACL. Review
-the entire effective policy. Port 8787 stays loopback-only.
+If occupied, choose an explicit free HTTPS port (for example 8443, only after
+checking it is unused), using `--https=8443` instead. If loopback 8787 is also
+occupied, choose a free receiver port in config, review/apply it offline and
+use that same backend port. Do not displace another listener.
+
+Use the **actual** HTTPS hostname and port reported by Serve, with the complete
+webhook path; this is a placeholder, not a URL to paste unchanged:
+
+```text
+https://<machine>.<tailnet>.ts.net:8443/webhooks/aurora
+```
+
+For default HTTPS use port 443 instead. Serve proxies to loopback HTTP.
+`--bg` persists Serve configuration across Tailscale restarts/reboots; it does
+**not** start or supervise the receiver. Have an authorized administrator
+restrict the selected HTTPS port to intended sending identities/devices.
+Grants are additive: a narrow rule does not override broad grants/ACLs. Review
+the entire effective policy. The backend port stays loopback-only.
+
+`GET /healthz` is a health probe, not Aurora's delivery URL. Aurora sends
+`POST /webhooks/aurora`. A 405 suggests route/method mismatch: check the full
+hostname, port, path and method before credentials. A 401 on the correct POST
+calls for checking signing/bearer copies and timestamp freshness. Never guess
+another URL, regenerate the app key blindly or turn off protections.
 
 **Never use Funnel as a fallback.** Serve is tailnet-private; Funnel exposes a
 service to the public internet. The last mode configured on a port determines
@@ -62,12 +81,12 @@ variants depend on login/session behavior; official macOS-variants and
 unattended guidance differ on daemon arrangements. Do not assume a universal
 supported pre-login recipe. Validate reboot/login behavior for your deployment.
 
-Aurora's current validator permits HTTPS DNS names such as `*.ts.net` and
-rejects literal private/tailnet IPs. **End-to-end delivery from Aurora iOS and
-macOS over this private setup remains unverified.** Both apps need their own
-Send test while connected to the intended VPN. A successful local signed smoke
-test or a syntactically accepted URL is not this evidence. No public relay is
-part of this blueprint.
+Aurora's validator permits HTTPS DNS names such as `*.ts.net` and rejects
+literal private/tailnet IPs. A user reported a successful manual app test after
+correcting the URL; the platform was not specified. This is not independently
+measured iOS/macOS coverage. Each intended app/device needs its own Send test
+on the intended VPN. A loopback signed check or accepted URL is not that proof.
+No public relay is part of this blueprint.
 
 ## Primary sources
 

@@ -72,11 +72,30 @@ separate private workspaces and runtime profiles. The receiver is not a
 multiuser service and does not offer tenant isolation.
 
 Keep signing/bearer keys out of Git, argv, issues, prompts and shared logs.
-Use protected service environment credentials; dotenv files are not loaded
-automatically. `keygen` outputs a sensitive key. This implementation has one
-active signing key: coordinate Aurora/receiver rotation and interrupted sends.
-Adapters clear the process environment; only fixed locale/path/private-home
-values and the explicitly selected runtime credentials are provided. Runtime
+Aurora generates the app signing key; copy it, never replace it with receiver
+`keygen`. Signing proves authenticity/integrity and freshness; a distinct bearer
+adds shared authorization. Recommend both; signing remains required here.
+`token-gen` emits a sensitive CSPRNG 32-byte URL-safe unpadded base64 bearer.
+Paste only that bearer into Aurora Authentication → Bearer.
+
+With explicit user approval, 0.2.1 can store both in an ignored private `.env`;
+the tracked `.env.example` contains placeholders only. `serve` and `doctor` load
+the file beside the selected config, or global `--env-file PATH` (explicit
+missing fails; implicit missing is optional). The file must be owned, regular,
+single-link, exactly 0600, with trusted non-symlink ancestors; maximum 64 KiB.
+The entire dotenv file is parsed before environment changes and before runtime
+threads start, never executed. Inherited process variables take precedence.
+Restart after changes; there is no per-request reload. Other commands and key
+generators do not load it; 0.2.0 binaries do not implement this feature.
+
+Use protected masked input/catalog or a trusted local editor. Account for
+clipboard history, editor swap/backups, OS storage encryption and backup access;
+0600 does not protect against same-user processes or synced-folder disclosure.
+Do not shell-source `.env`, including for the process-env-only Python sender.
+This implementation has one active signing key: coordinate Aurora/receiver
+rotation and interrupted sends. Adapter variables work via the loaded process
+environment, but adapters still clear it: only fixed locale/path/private-home
+values and explicitly selected runtime credentials are provided. Runtime
 profiles and provider-side authentication remain sensitive disk/remote state.
 See [agent boundaries](agents.md) for exactly what is and is not inherited.
 

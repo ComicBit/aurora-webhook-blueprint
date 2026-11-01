@@ -25,9 +25,9 @@ and config. Other paths below are relative to that root:
 
 If copied without the repository, obtain the public kit from
 https://github.com/ComicBit/aurora-webhook-blueprint and read those resources;
-do not invent missing flags. Current Rust 0.2.0 source and historical Go 0.1.0
-binaries have different commands/storage/config. Do not use an old binary as
-if it ran the Rust examples.
+do not invent missing flags. Current Rust 0.2.1 source, old 0.2.0 Rust binaries
+and historical Go 0.1.0 binaries differ. The upcoming v0.2.1 preview is not
+published evidence; 0.2.0 binaries do not support dotenv loading or `token-gen`.
 
 ## Establish only decisions that belong to the user
 
@@ -67,11 +67,37 @@ an otherwise local setup.
 ## Continue through authorized local work
 
 Use Rust 1.98/Cargo and the actual `config.example.json`; preserve safe defaults
-with `destinations: []`. Secrets stay out of Git, argv, prompts, shared logs and
-issues. `keygen` is sensitive output; dotenv files are not loaded by the
-receiver. Build/setup, local config and fictional delivery are separate from
-network/account/provider mutations. Continue with the authorized parts rather
-than stopping at a plan or after questions while useful local work remains.
+with `destinations: []`. Continue authorized local work rather than stopping at
+a plan. Build/setup, local config and fictional delivery are separate from
+network/account/provider mutations.
+
+Explain signing as authenticity/integrity of exact bytes plus freshness, and
+bearer as separate shared authorization; recommend both without an architecture
+quiz. This receiver requires signing: if declined, explain the limitation and
+stop app delivery setup, never disable verification. Aurora owns the signing
+key: guide **Signing secret → Generate** only if missing, then **Copy** into
+protected capture. Never invent/replace the app key with receiver `keygen`;
+that command is only synthetic/receiver tooling.
+
+Generate a distinct bearer with `token-gen` (CSPRNG 32-byte URL-safe unpadded
+base64). Honor existing consent; otherwise ask approval to write both
+`AURORA_WEBHOOK_SECRET` and `AURORA_BEARER_TOKEN` to an ignored local 0600 `.env`.
+Use protected masked input, a credential catalog where available, or a trusted
+local editor—not an imaginary capture command. Never echo values into chat,
+argv, Git or logs. User pastes **only bearer** into **Authentication → Bearer**.
+Protect clipboard, editor backups, OS storage and backups; avoid synced folders.
+
+In 0.2.1 `serve`/`doctor` load `.env` beside the selected config, not by recursive
+CWD search; global `--env-file PATH` selects an explicit required file. A missing
+implicit file is optional. Owned regular single-link 0600 files and trusted
+non-symlink ancestors are required, bounded to 64 KiB. Parse the entire file
+before environment changes/runtime threads; never shell-source or execute it.
+Inherited environment wins; restart to reload. Adapter variables work through
+the loaded environment with existing allowlists. Other commands do not load
+dotenv; administration still needs its config/inbox. Only the key generators
+are independent of both configuration and dotenv. The Python synthetic helper
+is process-env-only: use secure masked Bash reads/exports as documented, or an
+authorized in-memory signed check; it does not load the receiver's file.
 
 Use `plan` to review the proposed configuration. It does not activate anything.
 Stop `serve` before `apply --approve`; the database-approved snapshot is
@@ -136,9 +162,15 @@ external effects and does not renew expiry. Killing a CLI cannot retract
 accepted gateway/cloud work. `handed_off` is admission, not completed output.
 
 Before app setup, preserve raw bytes/signature headers through private HTTPS.
-An accepted `https://…ts.net` hostname is not proof of active routing/trust on
-an actual iOS/macOS device. Once device/network use is authorized, guide Send
-test, then one deliberate fictional meeting, before optional automatic export.
+Inspect Serve routes first; never overwrite an existing route. If 443 is in
+use, select an explicit free HTTPS port. Copy the full actual HTTPS hostname,
+port and `/webhooks/aurora` path; do not guess the URL. `GET /healthz` differs
+from `POST /webhooks/aurora`: 405 suggests route/method, while 401 on the correct
+POST calls for credential/timestamp checks, never disabling protections.
+An accepted hostname is not delivery proof. Once device/network use is
+authorized, guide Send test, then one deliberate fictional meeting, before
+optional automatic export. A user-reported successful manual app test with no
+platform specified is not proof of both iOS and macOS paths.
 Do not promise public TestFlight or App Store availability: Aurora's beta is
 invitation-only; use the website/waitlist links in the README.
 
