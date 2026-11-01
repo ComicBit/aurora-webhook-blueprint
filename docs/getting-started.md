@@ -1,167 +1,367 @@
 # Run your first Aurora webhook inbox
 
-This guide takes you from a local receiver to a private Aurora connection.
-Agent processing stays off until you explicitly configure it. You do not need
-a model account to receive and inspect events.
+Start with a private inbox, then add a folder or an approved agent destination.
+**The default makes no model call.** You do not need a model account to receive
+and inspect events. This guide is for the Rust **0.2.0 source**, not the older
+Go 0.1.0 release binaries.
 
 ## What you need
 
-- An awake macOS or Linux host that will run the receiver.
-- Go 1.25+ to build from source, or a matching binary from
-  [Releases](https://github.com/ComicBit/aurora-webhook-blueprint/releases).
-- Python 3.9+ for the optional synthetic delivery helper.
-- An Aurora build with webhook settings and its signing secret when connecting
-  the app. Public beta availability may differ from the build under test.
-- Private HTTPS connectivity from your sending device: an existing suitable
-  VPN, or an approved Tailscale Serve setup.
+- An awake host and a trusted local account. macOS and Linux are the intended
+  Unix targets; consult [verification evidence](verification.md) for what has
+  actually run. Windows is not supported by the current Unix implementation.
+- Building from source requires Rust **1.98**, Cargo and a native C compiler/
+  linker for bundled SQLite. On macOS this normally means Command Line Tools;
+  on Linux, a distribution's C toolchain. Installation is an explicit action.
+- Python 3.9+ for the optional bundled synthetic sender.
+- For app delivery later: an invited Aurora beta build exposing webhook
+  settings, its signing key, and private HTTPS reachable from the sending
+  device. [Aurora's waitlist](https://auroraisyours.com/#waitlist) is not a
+  public TestFlight installation link.
 
-Do the local check first. Installing a VPN, changing access rules and enabling
-model processing are separate decisions, not prerequisites for that check.
+Do the local check first. VPN installation, account sign-in, provider access
+and automatic export are separate decisions, not prerequisites for it.
 
-## 1. Get the receiver
+## Prebuilt macOS arm64 preview
+
+The [Rust 0.2.0 preview release](https://github.com/ComicBit/aurora-webhook-blueprint/releases/tag/v0.2.0)
+provides `aurora-webhook-v0.2.0-darwin-arm64.tar.gz` and `SHA256SUMS`. Download
+both into a trusted directory, verify the checksum, then extract into a new
+directory:
+
+```sh
+shasum -a 256 -c SHA256SUMS
+mkdir aurora-preview
+tar -xzf aurora-webhook-v0.2.0-darwin-arm64.tar.gz -C aurora-preview
+cd aurora-preview/aurora-webhook
+cp config.example.json config.local.json
+./aurora-webhook --config config.local.json plan
+./aurora-webhook --config config.local.json apply --approve
+```
+
+Use `./aurora-webhook` in place of `target/release/aurora-webhook` in the
+remaining examples. The bundle also contains the source and setup resources.
+It needs no Go or external SQLite server. Source builds need the toolchain
+above; this prebuilt path does not.
+
+The binary is **unsigned and not notarized**. Checksums detect corruption;
+they do not constitute a publisher signature. Follow your Mac's security
+policy or build from the tagged source rather than blindly bypassing a
+quarantine warning. Linux and other architectures have no native-qualified
+Rust bundle in this release. Old v0.1.0 bundles are Go, not this Rust build.
+
+## 1. Build and initialize a database-only inbox
 
 ```sh
 git clone https://github.com/ComicBit/aurora-webhook-blueprint.git
 cd aurora-webhook-blueprint
-go build -o bin/aurora-webhook ./cmd/aurora-webhook
+cargo build --release
 cp config.example.json config.local.json
+target/release/aurora-webhook --config config.local.json plan
+target/release/aurora-webhook --config config.local.json apply --approve
 ```
 
-Alternatively, download your platform's unsigned release binary and
-`SHA256SUMS`, verify its checksum, and mark it executable with `chmod u+x`.
-Place it at `bin/aurora-webhook` to use the commands below. macOS may require
-local approval for an unsigned executable; do not disable system protections
-globally. You still need the repository's config, docs and optional helper.
+Review the `plan` output before approving it. `plan` validates and displays the
+proposed configuration without activating it. `apply --approve` initializes
+`data/inbox.sqlite3` or activates a new configuration **with the receiver
+stopped**. It never creates historical deliveries. The database's approved
+snapshot is authoritative: editing the file alone does not activate changes,
+and `serve` refuses a file that differs from the approved snapshot.
 
-The example config binds to `127.0.0.1:8787` and stores data in `./data` relative
-to the config file. It is inbox-only. The receiver creates private storage and
-rejects symlinks in the data path; existing directories must be private.
+The example binds to `127.0.0.1:8787`, uses `./data` **relative to the config
+file**, and has `"destinations": []`. It stores exact verified request bytes
+without leaving unfinished agent jobs. Keep the config, data and any exports
+outside shared/synced directories. Existing managed directories must be
+private; paths containing symlinks are rejected. Use real paths (for example
+`/private/tmp`, not macOS `/tmp`) where applicable.
+
+`--config` is a global option: it may precede or follow the subcommand. The
+examples consistently put it first. If omitted, the file is `config.json`.
 
 ## 2. Supply the signing secret and start
 
-Use the same signing secret in Aurora and the receiver. It is `whsec_` followed
-by base64-encoded 32 random bytes; bare base64 is also accepted. Do not commit
-it or paste it into shell history. Use protected service credentials for a
-persistent deployment. For a temporary interactive **Bash** session:
+Use the same key in Aurora and the receiver: `whsec_` plus base64-encoded
+**32 random bytes** (bare base64 is also accepted). Do not put it in Git,
+shared logs, screenshots, command arguments or literal shell history. For a
+temporary interactive **Bash** session with an existing app key:
 
 ```bash
 read -r -s -p 'Webhook signing secret: ' AURORA_WEBHOOK_SECRET
 printf '\n'
 export AURORA_WEBHOOK_SECRET
-bin/aurora-webhook serve -config config.local.json
+target/release/aurora-webhook --config config.local.json serve
 ```
 
-For a local-only trial, you may generate a temporary key instead of using your
-app's key: `export AURORA_WEBHOOK_SECRET="whsec_$(openssl rand -base64 32)"`.
-A generated key does not configure Aurora. If you use it in a second terminal,
-transfer it through a protected method; shell exports are not automatically
-shared between terminals. Never include it in screenshots or issue reports.
+For an isolated local trial, generate a temporary key without printing it:
 
-If Aurora uses optional bearer authentication, also provide the matching
+```sh
+export AURORA_WEBHOOK_SECRET="$(target/release/aurora-webhook keygen)"
+target/release/aurora-webhook --config config.local.json serve
+```
+
+A generated key does not configure Aurora. To reuse it in a second terminal,
+transfer it through a protected method; exported variables are not shared
+between terminals. For persistent service use, provision protected service
+credentials instead of an interactive shell.
+
+If Aurora uses optional bearer authentication, also set the matching
 `AURORA_BEARER_TOKEN` (32–4096 bytes, no whitespace). See
-[`.env.example`](../.env.example) for variable names. Dotenv files are a
-reference format here; the receiver does **not** load them automatically.
+[`.env.example`](../.env.example). The receiver does **not** load dotenv files
+automatically. `keygen`, `plan` and `apply` do not require the webhook secret;
+`serve` does.
 
 ## 3. Check delivery with fictional content
 
-In a second terminal at the repository root, supply the **same** signing secret
-(and bearer token, if enabled) through protected input, then run:
+In a second terminal at the repository root, securely supply the **same** key
+(and bearer token, if enabled), then run:
 
 ```sh
 python3 scripts/send-synthetic.py --test
 python3 scripts/send-synthetic.py --event-id evt_00000000-0000-4000-8000-000000000003
 python3 scripts/send-synthetic.py --event-id evt_00000000-0000-4000-8000-000000000003
+target/release/aurora-webhook --config config.local.json status
+target/release/aurora-webhook --config config.local.json list --limit 20
+target/release/aurora-webhook --config config.local.json show evt_00000000-0000-4000-8000-000000000003
 ```
 
-Successful delivery prints `Synthetic event HTTP 204`. The first event is a
-connectivity test and never starts an agent. The next two commands send the
-same fictional meeting twice with one id; the inbox stores it once. Do not
-reuse an id for a changed body: adding `--test`, for example, changes the body
-and produces a conflict. The helper never reads real meeting data and refuses
-redirects.
+Successful delivery prints `Synthetic event HTTP 204`. The test is retained
+for connectivity inspection but causes **zero outward delivery**, including
+folders, agents, remote requests and later backfills. The two identical real
+fictional sends create one receipt, not two. Reusing an id with changed bytes
+returns **409**; an identical duplicate creates no new intents and does not
+extend the original deadline. A manual resend with a **new** id is new work
+under the then-active configuration, even if its meeting text is old.
 
-Stop the receiver with Ctrl-C before inspecting its database. Administrative
-commands use the same exclusive database lock:
+`status`, `list`, `show` and `result` work while the daemon runs. `status`
+contains redacted operational metadata and up to 1,000 recent delivery rows;
+`list` paginates receipt metadata (`--limit` 1–100, `--after RECEIPT_ID`).
+`show EVENT_ID` prints sensitive, exact original bytes. Use a trusted terminal.
+A successful receipt is not a successful downstream task.
+
+## 4. Optional: save a portable folder copy
+
+Stop `serve` with Ctrl-C. Replace the empty `destinations` array in
+`config.local.json` with the following, using your own **absolute private
+folder path outside the database tree**:
+
+```json
+"destinations": [
+  {
+    "id": "notes",
+    "enabled": true,
+    "kind": "folder",
+    "root": "/absolute/private/aurora-notes",
+    "formats": ["original_json", "markdown"]
+  }
+]
+```
+
+This is a replacement JSON property, not a complete config file. Do not
+literally use the placeholder path. The receiver can create the folder with
+private permissions; existing directories must be private and have trusted,
+non-symlink ancestors. Folder roots must not overlap each other or `data_dir`.
 
 ```sh
-bin/aurora-webhook status -config config.local.json
-bin/aurora-webhook show -config config.local.json evt_00000000-0000-4000-8000-000000000003
+target/release/aurora-webhook --config config.local.json plan
+target/release/aurora-webhook --config config.local.json doctor
+target/release/aurora-webhook --config config.local.json apply --approve
+target/release/aurora-webhook --config config.local.json serve
 ```
 
-`status` prints ids and processing states. `show` explicitly prints the raw
-payload, so use a trusted terminal or protected output file.
+`doctor` only checks local configuration/files/environment. It can create a
+configured folder root, but makes **no network, authentication or inference
+probe**. It does not prove a live agent will obey policy.
 
-## 4. Connect Aurora over private HTTPS
+Send a **new** fictional event id to see a folder export. Each event gets a
+subdirectory named by the full SHA-256 of its event id. The selected files are
+`event.json` (unchanged bytes) and `meeting.md` (readable source sections, not an
+AI digest), followed by `receipt.json` containing hashes and the configuration
+revision. Markdown organizes meeting/event metadata, summary, action items,
+transcript/turns, speakers and source metadata; source text stays literal inside
+data-dependent fences. Unknown additive fields retain their source paths in
+Extra source fields. Excluded scope is distinct from included-empty text/lists;
+no owner or deadline is inferred. Files publish without replacement; the receipt is
+written last. Matching partial bundles can be reconciled after explicit retry;
+conflicting or edited artifacts and symlinks fail for review. A bundle is not
+one atomic filesystem operation. Do not edit receiver-owned files in place.
+
+Only future newly accepted events use the new destination. Existing receipts
+stay in the database until you explicitly approve a [backfill](#send-retained-history-with-a-reviewed-backfill).
+Database deletion does **not** remove folder copies.
+
+## 5. Connect Aurora over private HTTPS
 
 Follow the [private networking guide](networking.md). Keep an existing trusted
-VPN if it provides reachable HTTPS DNS and trusted TLS. If you need a VPN,
-Tailscale **Serve** is the recommended option; get approval for installation,
-sign-in, HTTPS and access policy. Never use Funnel or a public tunnel as a
-fallback.
-
-With the receiver running and Tailscale already approved/configured:
+VPN if it provides reachable HTTPS DNS and trusted TLS. If you need private
+connectivity, use approved Tailscale **Serve**—never Funnel or a public tunnel.
+Installation, sign-in, HTTPS and access-policy changes need authorization.
+With Tailscale already approved/configured and the receiver running:
 
 ```sh
 tailscale serve --bg http://127.0.0.1:8787
 tailscale serve status
 ```
 
-Set Aurora's endpoint to the reported HTTPS hostname plus
-`/webhooks/aurora`. Keep signing enabled, choose the minimum content scope and
-use **Send test** from the actual sending device on the intended VPN. Verify
-both iOS and macOS before relying on automatic export. Then send one deliberate
-synthetic meeting before considering automatic export.
+Set Aurora's endpoint to the reported HTTPS hostname plus `/webhooks/aurora`.
+A `https://…ts.net` source-accepted URL is not proof of real delivery. Keep
+signing enabled, select the minimum content scope and use **Send test** from
+the actual sending device on the intended VPN. Then send one deliberate
+fictional meeting before considering automatic export. Test each intended
+platform: iPhone delivery does not prove a Mac app path.
 
-Serve does not start the receiver or keep your host awake. Certificate issuance
-publishes the hostname in Certificate Transparency logs. Private transport is
-not offline delivery and says nothing about where a model performs inference.
+Serve does not start the receiver or keep the host awake. Certificate issuance
+publishes the hostname in Certificate Transparency logs. Private ingress is not
+offline transport; local CLI execution is not necessarily local inference.
 
-## 5. Add processing only when you are ready
+## 6. Add an approved agent only if you need it
 
-Decide the intended outcome, review destination, approved runtime/provider and
-data policy first. The [onboarding skill](../skills/connect-aurora/SKILL.md)
-helps with these decisions. Follow the [agent guide](agents.md) for Claude,
-Codex or Hermes configuration, required environment and isolation limitations.
-A local CLI can still send content to a cloud provider.
+Choose the outcome, recipient/provider, exact operation and target authority
+before sharing meeting content. The [agent guide](agents.md) documents local
+Claude/Codex/Hermes operations and remote Hermes Runs/Grok Bot handoffs.
+A fresh task, a saved-session continuation and a notification to an existing
+remote target are different operations, not interchangeable modes.
 
-Successful bounded output is retained with the event. Retrieve it explicitly:
-
-```sh
-bin/aurora-webhook result -config config.local.json EVENT_ID
-```
-
-The adapters generate digests/proposals; they do not implicitly create CRM
-records, assign tasks or message your team. Those destinations and approvals
-need their own implementation. Test events never invoke an agent. Hermes task
-wake-up starts work on an awake host; it cannot wake a sleeping computer.
-
-## Operate the inbox
-
-The defaults are seven-day retention, 100 pending events, a 256 MiB logical
-budget and eight concurrent requests. Every non-test record reserves 64 KiB for
-a future result, even in inbox-only mode. The database can keep its high-water
-allocation after deletion; leave room for overhead and backups. Configuration
-rejects unknown keys and nonloopback listeners.
-
-Stop the receiver before these commands:
+Configure a destination, review `plan`, run local-only `doctor`, then stop the
+receiver and `apply --approve`. Validate it with fictional **non-test** content
+only when actual provider use is authorized. A connectivity test never calls
+the provider, and `doctor` is not a substitute for that separate verification.
+Retrieve a completed local result using its **delivery id**, from `status`:
 
 ```sh
-bin/aurora-webhook delete -config config.local.json EVENT_ID
-# Only after reconciling any possible earlier downstream effects:
-bin/aurora-webhook retry -config config.local.json --acknowledge-duplicate-risk EVENT_ID
+target/release/aurora-webhook --config config.local.json result DELIVERY_ID
 ```
 
-An interrupted/failed job becomes `needs_review`, not an automatic agent retry.
-Deletion logically removes payload/results and retains a dedupe tombstone;
-retention eventually removes the id too. Neither operation securely erases
-bbolt free pages, backups or provider history. See [security and operations](security.md).
+A remote `handed_off` receipt reports admission, not task completion or a
+retrievable answer. No adapter silently adds a CRM/task/message integration.
+
+## Send retained history with a reviewed backfill
+
+Adding/enabling/changing a destination does not send old content. Backfill is
+a separate disclosure/action approval. Stop the receiver, apply the intended
+configuration first, and choose a **receipt-time** UTC interval `[start, end)`:
+
+```sh
+target/release/aurora-webhook --config config.local.json backfill preview notes \
+  --start 2026-11-01T00:00:00Z --end 2026-11-02T00:00:00Z \
+  --output /absolute/private/backfill-notes.json
+# Review the exact private plan and its destination/authority before approving:
+target/release/aurora-webhook --config config.local.json backfill apply \
+  --plan /absolute/private/backfill-notes.json --approve
+```
+
+Replace dates and paths with the intended selection. Output must be a **new**
+private file; preview also prints metadata to the terminal. Preview records an
+immutable local plan: receipt incarnation/id, event id, body hash, original
+expiry, receiver, config and destination fingerprints. By default it selects
+the latest received revision **within the range** per meeting; explicitly add
+`--all-revisions` only if every eligible revision is intended. Tests are always
+excluded. Unavailable latest revisions are counted, not replaced with older
+content; already-routed initial deliveries to that destination are skipped.
+
+Approval must match the stored plan, unchanged configuration and still-retained
+bodies. Plans expire after at most **15 minutes**, earlier if selected content
+expires; at most **1,000** new intents are allowed per preview. Narrow the
+interval rather than silently reducing selection. Neither preview nor apply
+contacts a destination; approved intents run after `serve` restarts. Backfill
+cannot resurrect deleted/expired bytes or reset retention. Inspect the
+selection and obtain consent before approval, not after delivery.
+
+## Operate, delete and recover
+
+| Command | While `serve` runs? | Meaning |
+| --- | --- | --- |
+| `plan`, `doctor` | Yes | Proposed-file review/local preflight; no activation or model call |
+| `status`, `list`, `show`, `result`, `legacy-result`, `export` | Yes | Read-only database inspection; content commands are sensitive |
+| `apply --approve` | No | Initialize/activate the reviewed config |
+| `delete`, `retry`, `expire`, `backup`, `import-go`, both `backfill` commands | No | Offline administration under the exclusive owner lock |
+
+Defaults: seven-day payload/result retention, another 30 days of finite
+deduplication metadata, 256 MiB **logical** storage, 1,000 pending/in-flight
+deliveries, 100,000 receipts, eight intake requests, four active deliveries,
+64 connections, 256 MiB minimum free space and at most 16 destinations. The
+byte budget includes receipt/intent overhead and bounded per-destination result
+reservation; it is not a cap on SQLite/WAL disk allocation, exports or backups.
+Capacity/headroom exhaustion returns 503 rather than acknowledging lost work.
+
+Independent destinations make progress with at most one in-flight delivery
+per destination. Safe automatic retries with backoff occur only when the
+adapter positively reports **not admitted**. Ambiguous network/process errors,
+timeouts, output failures and interrupted in-flight work become `needs_review`.
+Startup does not blindly repeat them. Review downstream state first:
+
+```sh
+# Stop serve first:
+target/release/aurora-webhook --config config.local.json delete EVENT_ID
+# For a different retained delivery, only after reconciling possible effects:
+target/release/aurora-webhook --config config.local.json retry DELIVERY_ID --acknowledge-duplicate-risk
+target/release/aurora-webhook --config config.local.json expire
+target/release/aurora-webhook --config config.local.json backup --output /absolute/private/backup-inbox.sqlite3
+# This read-only normalized export may also run while serve runs:
+target/release/aurora-webhook --config config.local.json export --output /absolute/private/events.jsonl
+```
+
+`retry` creates an explicitly authorized repeat for an eligible terminal
+delivery under the same enabled destination revision, **without extending its
+original expiry**. It can duplicate external effects. Deleted/expired/test
+content is not retryable. `delete` logically removes local raw/results, not
+folder copies, provider history, profiles or backups. Tombstones expire 30 days
+after the original payload deadline by default; deduplication is not forever.
+
+`backup` creates a consistent private SQLite backup in a **new** file.
+`export` emits normalized JSONL, **not exact signed-raw backup**, and is not the
+Go migration format. Define restore/reconciliation and external retention
+policies before using real content; see [security and operations](security.md).
+
+## Migrate from the Go 0.1.0 inbox
+
+Do not run an old binary against Rust storage, rename a bbolt file to SQLite,
+or reuse the old `worker`/`retention_days` configuration. Stop the Go receiver,
+keep an untouched private backup of its database, and reconcile any prior
+external work. Use a **new** Rust data directory with `destinations: []`, then
+`plan` and `apply --approve` it as above.
+
+The optional read-only migration exporter alone requires **Go 1.25+**. From
+the repository root, with real absolute private paths:
+
+```sh
+(cd tools/export-go-inbox && go run . \
+  --input /absolute/private/stopped-old-inbox.db \
+  --output /absolute/private/migration-go.jsonl)
+target/release/aurora-webhook --config config.local.json import-go \
+  --input /absolute/private/migration-go.jsonl --approve
+```
+
+The exporter locks bbolt read-only and creates a new 0600 JSONL file. Records
+carry version 1, event id, original receipt/expiry times, prior state, SHA-256,
+base64 original body/result (or null), and test marker. Rust verifies records
+and imports available bodies, bounded original results and original delivery
+state as **held history with zero delivery jobs**. `status` reports original
+state metadata for reconciliation. Normal `result DELIVERY_ID` is for new
+destination results; use the read-only command below for a retained old result:
+
+```sh
+target/release/aurora-webhook --config config.local.json legacy-result EVENT_ID
+```
+
+It prints sensitive original bytes, not a new inference result. Original
+deadlines survive; deleted/expired bodies and results stay unavailable, and
+records beyond the finite metadata horizon are rejected rather than rejuvenated.
+
+Export/import can fail after writing earlier records; this is not an atomic
+whole-inbox migration. Preserve the old backup and inspect the error/counts.
+Do not treat a partial export as complete; rerun the exporter to a new file
+after correcting the cause. Importing the same matching receipt metadata is
+idempotent; conflicting records stop import. Do not automatically rerun old
+pending/running work. New downstream delivery requires separate route approval
+and the exact reviewed backfill flow above. Keep migration JSONL confidential
+and apply its own deletion policy.
 
 ## Before using real meetings
 
-Read the [verification evidence](verification.md) and [payload contract](payload.md).
-Local synthetic checks are not evidence of real Aurora VPN delivery or real
-model behavior. Confirm participant authorization, scope, destination access,
-provider terms, retention and backup policy. There is no exactly-once guarantee
-for downstream effects and no guarantee of prompt-injection prevention.
+Read [verification evidence](verification.md), [payload limits](payload.md)
+and [security](security.md). Synthetic process tests are not proof of real
+Aurora/VPN delivery or real model behavior. Confirm participant authorization,
+minimum scope, destination access, provider terms and all retention/backups.
+There is no downstream exactly-once or prompt-injection-immunity guarantee.
 
 [Back to the project overview](../README.md)

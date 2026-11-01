@@ -1,4 +1,4 @@
-module github.com/ComicBit/aurora-webhook-blueprint
+module github.com/ComicBit/aurora-webhook-blueprint/tools/export-go-inbox
 
 go 1.25.0
 

@@ -1,9 +1,15 @@
 {
+  "schema_version": 1,
   "listen": "127.0.0.1:8787",
   "data_dir": "./data",
-  "max_pending": 100,
+  "retention_seconds": 604800,
+  "metadata_retention_seconds": 2592000,
   "max_storage_bytes": 268435456,
-  "retention_days": 7,
+  "max_pending": 1000,
+  "max_records": 100000,
   "max_concurrent_requests": 8,
-  "worker": {}
+  "max_active_deliveries": 4,
+  "max_connections": 64,
+  "min_free_bytes": 268435456,
+  "destinations": []
 }

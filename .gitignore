@@ -9,8 +9,16 @@
 /artifacts/
 /temp/
 /bin/
+/target/
+/exports/
+/backfill-*.json
+/migration-*.jsonl
+/backup-*.sqlite3
 *.db
 *.db-shm
 *.db-wal
+*.sqlite3
+*.sqlite3-shm
+*.sqlite3-wal
 *.bolt
 .DS_Store
