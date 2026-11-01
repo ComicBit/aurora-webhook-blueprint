@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+- Refreshed the README with prominent setup, Aurora and Tailscale links, a
+  one-block copyable agent prompt, and a shorter introduction to private setup.
+  Kept detailed qualification and release evidence in the documentation.
+
 ## 0.2.0 — Rust source cutover
 
 - Replaced the receiver with Rust/Cargo and bundled SQLite WAL/FULL storage;

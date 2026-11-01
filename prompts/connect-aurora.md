@@ -1,5 +1,9 @@
 # Connect my Aurora meetings to my workflow
 
+Copy the text below into your coding agent using the copy button at the top-right
+of the block. Tell it what you want your meeting notes to become.
+
+```text
 Use the public Aurora webhook blueprint:
 https://github.com/ComicBit/aurora-webhook-blueprint
 
@@ -15,7 +19,7 @@ scope; local-only versus approved provider disclosure; actual target authority;
 retention/backups; and the receiving host/private connectivity. Don't quiz me
 on database internals, queues, flags or choices the kit already makes safely.
 
-Start with the current **Rust 0.2.0 source**, signed database-only receipt and
+Start with the current Rust 0.2.0 source, signed database-only receipt and
 `destinations: []`, no model account or latent jobs. Offer a private folder
 export if original JSON/literal Markdown meets my goal without inference.
 Keep historical Go 0.1.0 release binaries and their migration separate. Use
@@ -60,3 +64,4 @@ what ran, distinguish doubles from real models, and name unperformed platform,
 provider and device checks. Do not send real content or change private-network
 policy without my explicit approval. Preserve Aurora's invitation-only beta
 caveat and website/waitlist links; do not invent public install availability.
+```

@@ -12,14 +12,13 @@
 </p>
 
 <p align="center">
-  <a href="https://auroraisyours.com/">Explore Aurora</a> ·
-  <a href="https://auroraisyours.com/#waitlist">Join the waitlist</a> ·
-  <a href="#get-started">Get started</a> ·
-  <a href="#documentation">Documentation</a>
+  <a href="prompts/connect-aurora.md"><img src="https://img.shields.io/badge/Copy_agent_setup_prompt-386650?style=for-the-badge" alt="Copy agent setup prompt"></a>
+  <a href="docs/getting-started.md"><img src="https://img.shields.io/badge/Set_it_up_yourself-252525?style=for-the-badge&amp;logo=github&amp;logoColor=white" alt="Set it up yourself"></a>
+  <a href="https://auroraisyours.com/"><img src="https://img.shields.io/badge/Discover_Aurora-EEEAE2?style=for-the-badge&amp;logoColor=252525" alt="Discover Aurora"></a>
 </p>
 
 <p align="center">
-  <a href="Cargo.toml"><img src="https://img.shields.io/badge/Rust-source%200.2.0-386650" alt="Rust source 0.2.0"></a>
+  <a href="Cargo.toml"><img src="https://img.shields.io/badge/built_with-Rust-386650?logo=rust" alt="Built with Rust"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-386650" alt="MIT license"></a>
 </p>
 
@@ -56,13 +55,31 @@ The default is **inbox-only**. You do not need a model account to get started.
 
 ### Let your coding agent help
 
-Open the **[copyable setup prompt](prompts/connect-aurora.md)** and give it to
-your coding agent. It points to the **[Aurora onboarding skill](skills/connect-aurora/SKILL.md)**
-and guides setup around your actual goal: what to produce, where it should go,
-which runtime you approve, and what data may leave the host.
+Tell your agent what you want to happen after a meeting: save notes to a folder,
+prepare a digest, or bring the context into a workflow you already use.
 
-Already use a trusted VPN? Keep it. If you need private connectivity, the guide
-recommends Tailscale **Serve**—not a public tunnel.
+<p>
+  <a href="prompts/connect-aurora.md"><img src="https://img.shields.io/badge/Open_%26_copy_the_setup_prompt-386650?style=for-the-badge" alt="Open and copy the setup prompt"></a>
+  <a href="skills/connect-aurora/SKILL.md"><img src="https://img.shields.io/badge/Read_the_agent_skill-EEEAE2?style=for-the-badge" alt="Read the agent skill"></a>
+</p>
+
+Open the prompt, use the copy button on its text block, and paste it into your
+coding agent. It will help you choose the destination, set up the receiver and
+check a fictional meeting before you share anything real.
+
+### Keep the connection private
+
+Already have a trusted VPN? Keep it. Otherwise, **Tailscale Serve** gives your
+receiver a private HTTPS address without opening it to the public internet.
+Your receiving host needs to stay awake and connected.
+
+<p>
+  <a href="https://tailscale.com/"><img src="https://img.shields.io/badge/Meet_Tailscale-242424?style=for-the-badge&amp;logo=tailscale&amp;logoColor=white" alt="Meet Tailscale"></a>
+  <a href="docs/networking.md"><img src="https://img.shields.io/badge/Private_connection_guide-EEEAE2?style=for-the-badge" alt="Private connection guide"></a>
+</p>
+
+Use Serve, not Funnel: this setup is for private access. The
+[networking guide](docs/networking.md) walks through the choices.
 
 ### Set it up yourself
 
@@ -138,22 +155,6 @@ offline transport, and prompt instructions are not a security boundary. Read
 | Understand the event fields and their limits | [Payload contract](docs/payload.md) |
 | Plan storage, consent, deletion and recovery | [Security and operations](docs/security.md) |
 | Check what has actually been exercised | [Verification evidence](docs/verification.md) |
-
-## Project status
-
-Version **0.2.0 is the Rust source cutover**: a signed SQLite inbox, independent
-destinations and explicit offline administration. It is a self-hosted blueprint,
-not a stable SDK, managed service or multiuser application.
-
-Native macOS arm64 verification passed **38 regression tests and 18 compiled
-receiver/process scenarios**, plus strict Clippy. The Rust macOS/Linux CI
-workflow is configured, not a passing hosted run. See the
-[verification record](docs/verification.md) for exact scope and limits.
-**Real agent/provider runs, actual Aurora device delivery and Linux runtime
-behavior remain unverified.**
-
-This repository does not modify Aurora. App integration and release gates
-remain separate in the [payload notes](docs/payload.md#future-app-release-gates-not-implemented-here).
 
 ## License
 
