@@ -24,15 +24,15 @@ and automatic export are separate decisions, not prerequisites for it.
 
 ## Prebuilt macOS arm64 preview
 
-The [Rust 0.2.1 preview](https://github.com/ComicBit/aurora-webhook-blueprint/releases/tag/v0.2.1)
+The [Rust 0.3.0 preview](https://github.com/ComicBit/aurora-webhook-blueprint/releases/tag/v0.3.0)
 includes the CLI and setup resources for macOS arm64. Download
-`aurora-webhook-v0.2.1-darwin-arm64.tar.gz` and `SHA256SUMS` into a trusted
+`aurora-webhook-v0.3.0-darwin-arm64.tar.gz` and `SHA256SUMS` into a trusted
 directory, verify the checksum, then extract into a new directory:
 
 ```sh
 shasum -a 256 -c SHA256SUMS
 mkdir aurora-preview
-tar -xzf aurora-webhook-v0.2.1-darwin-arm64.tar.gz -C aurora-preview
+tar -xzf aurora-webhook-v0.3.0-darwin-arm64.tar.gz -C aurora-preview
 cd aurora-preview/aurora-webhook
 cp config.example.json config.local.json
 ./aurora-webhook --config config.local.json plan
@@ -43,6 +43,10 @@ Use `./aurora-webhook` in place of `target/release/aurora-webhook` in the
 remaining examples. The bundle also contains the source and setup resources.
 It needs no Go or external SQLite server. Source builds need the toolchain
 above; this prebuilt path does not.
+
+If upgrading an existing Rust inbox, follow the [offline schema upgrade](#upgrade-a-rust-schema-v1-inbox)
+before running `apply --approve` against that inbox. The example above starts a
+new inbox.
 
 The binary is **unsigned and not notarized**. Checksums detect corruption;
 they do not constitute a publisher signature. Follow your Mac's security

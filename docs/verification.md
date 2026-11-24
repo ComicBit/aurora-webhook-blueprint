@@ -1,11 +1,10 @@
 # Verification evidence
 
-Evidence is version-specific. **Current development source is not a tagged
-Rust or Go preview.** Each record retains its own scope. A configured
-workflow, local preflight or process double does not establish a passing hosted
-build, actual model behavior or device delivery.
+Evidence is version-specific. A configured workflow, local preflight or process
+double does not establish a passing hosted build, actual model behavior or
+device delivery.
 
-## Unreleased Enterprise local v1
+## Rust 0.3.0 Enterprise local v1 preview
 
 On macOS arm64 with Rust/Cargo 1.98.1, `cargo test --locked` passed all
 **56 tests**; Rustfmt and strict Clippy (`--all-targets -- -D warnings`) passed.
@@ -36,7 +35,8 @@ This qualifies the local fixture profile only. No Operations-minted staging
 proof or native Company Sync contract was available. Real iOS/macOS and
 private VPN interoperability, actual full-filesystem behavior, physical
 power-loss durability, Linux runtime and hosted CI are not established.
-No GitHub release was created.
+The macOS arm64 binary is an unsigned, unnotarized preview, not a production
+Enterprise qualification or a macOS application installer.
 
 ## Rust 0.2.1 credential verification
 

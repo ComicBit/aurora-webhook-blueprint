@@ -41,11 +41,11 @@ Never echo either secret into chat, argv, Git or logs. I paste ONLY bearer into
 Aurora Authentication > Bearer. Explain clipboard/editor-backup, OS, same-user,
 backup and synced-folder risks.
 
-In 0.2.1 serve/doctor load .env beside the selected config; --env-file PATH
+Since 0.2.1, serve/doctor load .env beside the selected config; --env-file PATH
 selects an explicit required file. Inherited process values override it and a
 restart reloads it. Other commands do not load .env; only key generators are
 independent of configuration too.
-Old 0.2.0 binaries do not implement this feature; use current source or the 0.2.1 preview.
+Old 0.2.0 binaries do not implement this feature; use current source or the 0.3.0 preview.
 The Python synthetic sender uses process environment only: securely capture
 its values without shell-sourcing .env or inventing a secret-capture tool.
 

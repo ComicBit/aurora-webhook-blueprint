@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased — Enterprise Company Sync local adapter
+## 0.3.0 — Enterprise Company Sync local preview
 
 - Added an opt-in, loopback/private-ingress Enterprise v1 namespace with
   pinned Ed25519 employee proof, authenticated receipts, resumable audio,
@@ -10,6 +10,9 @@
 - Added explicit offline SQLite schema v1 → v2 migration. Back up before
   `apply --approve`; consumer route, authentication, payload caps and receipts
   are unchanged. Tagged v0.2.1 binaries predate schema v2 and the local adapter.
+- Includes an unsigned, unnotarized macOS arm64 CLI preview with a checksum.
+  See [verification evidence](docs/verification.md#rust-030-enterprise-local-v1-preview)
+  for what was tested and what remains unverified.
 
 ## 0.2.1 — Credential onboarding
 

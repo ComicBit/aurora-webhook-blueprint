@@ -25,10 +25,10 @@ and config. Other paths below are relative to that root:
 
 If copied without the repository, obtain the public kit from
 https://github.com/ComicBit/aurora-webhook-blueprint and read those resources;
-do not invent missing flags. Current Rust source is distinct from the
-published v0.2.1, v0.2.0 and Go v0.1.0 previews. The consumer inbox remains
-supported; back up a schema v1 inbox before the offline `apply --approve`
-upgrade. See `docs/getting-started.md` for migration and rollback.
+do not invent missing flags. Current Rust source and the v0.3.0 preview use
+schema v2. The consumer inbox remains supported; back up a schema v1 inbox
+before the offline `apply --approve` upgrade. See `docs/getting-started.md`
+for migration, rollback and differences from older releases.
 
 ## Establish only decisions that belong to the user
 

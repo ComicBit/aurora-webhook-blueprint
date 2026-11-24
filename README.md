@@ -88,8 +88,7 @@ Use the **[getting-started guide](docs/getting-started.md)** for the complete
 signed, database-only setup, a synthetic delivery check and an optional folder
 destination.
 
-Build the current **Rust development source** with Rust 1.98 and a native C toolchain
-(SQLite is bundled):
+Build from source with Rust 1.98 and a native C toolchain (SQLite is bundled):
 
 ```sh
 git clone https://github.com/ComicBit/aurora-webhook-blueprint.git
@@ -105,8 +104,9 @@ separate bearer token, and start `serve` as described in the guide.
 `plan` only reviews configuration; `apply` initializes or activates it with the
 receiver stopped. Neither sends historical meetings.
 
-**Prefer a binary?** The [Rust 0.2.1 preview](https://github.com/ComicBit/aurora-webhook-blueprint/releases/tag/v0.2.1)
-includes the native-tested macOS arm64 CLI and setup resources.
+**Prefer a binary?** The [Rust 0.3.0 preview](https://github.com/ComicBit/aurora-webhook-blueprint/releases/tag/v0.3.0)
+includes the native-tested macOS arm64 CLI and setup resources. Existing Rust
+inboxes need an [offline backup and schema upgrade](docs/getting-started.md#upgrade-a-rust-schema-v1-inbox).
 The older [0.2.0 macOS arm64 preview](https://github.com/ComicBit/aurora-webhook-blueprint/releases/tag/v0.2.0)
 does **not** load `.env` or provide `token-gen`. See the
 [prebuilt setup](docs/getting-started.md#prebuilt-macos-arm64-preview).
@@ -116,7 +116,7 @@ are the earlier Go receiver. Do not mix their configuration or commands;
 
 ### Enterprise Company Sync (local integration only)
 
-The current source also has a separate, opt-in [Enterprise local v1 receiver](docs/enterprise-local-v1.md).
+Rust 0.3.0 also has a separate, opt-in [Enterprise local v1 receiver](docs/enterprise-local-v1.md).
 It verifies a signed employee UUID locally and supports resumable audio,
 notes and a sales outcome. It does not send data to Aurora servers or run
 destinations automatically. The local signer and examples are synthetic:
