@@ -1,9 +1,9 @@
 # Run your first Aurora webhook inbox
 
-Start with a private inbox, then add a folder or an approved agent destination.
-**The default makes no model call.** You do not need a model account to receive
-and inspect events. This guide is for the Rust **0.2.1 source**, not older
-0.2.0 Rust binaries or Go 0.1.0 release binaries.
+Start with a private consumer inbox, then add a folder or an approved agent
+destination. **The default makes no model call.** You do not need a model
+account to receive and inspect events. These steps apply to the current Rust
+source unless marked as a tagged binary or historical release.
 
 ## What you need
 
@@ -323,6 +323,69 @@ contacts a destination; approved intents run after `serve` restarts. Backfill
 cannot resurrect deleted/expired bytes or reset retention. Inspect the
 selection and obtain consent before approval, not after delivery.
 
+## Upgrade a Rust schema v1 inbox
+
+The current source uses SQLite schema v2. Consumer app clients keep the same
+route, signing keys, JSON and receipts. The tagged v0.2.1 **receiver binary**
+cannot open schema v2.
+
+Stop the receiver and other inbox commands. Keep the approved config and a
+consistent SQLite backup in a separate protected directory (create that
+directory privately first). With the current binary, run:
+
+```sh
+target/release/aurora-webhook --config config.local.json backup \
+  --output /absolute/private/backup/inbox-v1.sqlite3
+target/release/aurora-webhook --config config.local.json plan
+target/release/aurora-webhook --config config.local.json apply --approve
+target/release/aurora-webhook --config config.local.json status
+```
+
+Only `apply --approve` migrates; it commits the new tables and schema version
+atomically under the owner lock. Existing receipts, deadlines and destination
+history remain. The usual `needs_review` rule still applies to deliveries that
+were running at shutdown. If migration fails, do not delete or relabel the
+database; stop, preserve the original backup, and inspect the error.
+For rollback, restore the untouched v1 backup and its config offline before
+launching the old binary. Reconcile any deliveries and receipts added after the
+backup before re-enabling senders or workers.
+
+## Try Enterprise Company Sync with synthetic data
+
+Use a **disposable** private inbox. The example pin is public fixture material;
+never use it or this local protocol with real recordings. Build the current
+source, then from the repository root:
+
+```sh
+lab="$(mktemp -d)"
+lab="$(cd "$lab" && pwd -P)"
+cp fixtures/enterprise-local/config.json "$lab/config.json"
+target/release/aurora-webhook --config "$lab/config.json" plan
+target/release/aurora-webhook --config "$lab/config.json" apply --approve
+target/release/aurora-webhook --config "$lab/config.json" serve
+```
+
+In another terminal, run `python3 scripts/enterprise-local-smoke.py` (Python 3
+and OpenSSL 3 or later). The sample has no consumer signing key: setting
+`consumer_enabled: false` removes that intake route, but does not cancel
+previous consumer jobs. For new Enterprise staging use `destinations: []`.
+Use an unused loopback port and the matching `--url` if 8787 is occupied.
+
+After stopping `serve`, inspect a completed event printed by the sender:
+
+```sh
+target/release/aurora-webhook --config "$lab/config.json" enterprise-export \
+  EVENT_UUID --output "$lab/verified-event"
+```
+
+`receipt.json` carries the verified organization, receiver and employee UUID.
+`manifest.json` is the exact digest-bound input, and `audio.bin` is available
+when the manifest included audio. Use the receipt, not names in transcripts
+or summaries, for attribution. A trusted local importer can consume this
+private bundle after approval; the receiver never sends Enterprise content to
+an existing consumer folder/agent target. See the [local wire contract](enterprise-local-v1.md)
+for limits, proof refresh and staging restrictions.
+
 ## Operate, delete and recover
 
 | Command | While `serve` runs? | Meaning |
@@ -331,6 +394,7 @@ selection and obtain consent before approval, not after delivery.
 | `status`, `list`, `show`, `result`, `legacy-result`, `export` | Yes | Read-only database inspection; content commands are sensitive |
 | `apply --approve` | No | Initialize/activate the reviewed config |
 | `delete`, `retry`, `expire`, `backup`, `import-go`, both `backfill` commands | No | Offline administration under the exclusive owner lock |
+| `enterprise-export EVENT_ID --output NEW_DIRECTORY` | No | Explicit, sensitive local bundle; completed retained Enterprise events only |
 
 Defaults: seven-day payload/result retention, another 30 days of finite
 deduplication metadata, 256 MiB **logical** storage, 1,000 pending/in-flight

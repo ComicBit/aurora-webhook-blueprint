@@ -1,0 +1,20 @@
+{
+  "listen": "127.0.0.1:8787",
+  "data_dir": "enterprise-local-data",
+  "consumer_enabled": false,
+  "enterprise_local_v1": {
+    "org_id": "fixture-org",
+    "receiver_id": "fixture-receiver",
+    "max_artifact_bytes": 536870912,
+    "max_storage_bytes": 1073741824,
+    "max_records": 256,
+    "max_concurrent_requests": 4,
+    "upload_ttl_seconds": 3600,
+    "retention_seconds": 3600,
+    "metadata_retention_seconds": 7200,
+    "public_keys": {
+      "fixture-ed25519": "W8yVNRKvDW3lOd0QB7Ow5fos1CAco2qYJjT7_KWoO3M",
+      "fixture-rotation": "kMCyASlpCVeCKfAtqmyLbPaKN_BAy78WRuwuv3ys7Sk"
+    }
+  }
+}

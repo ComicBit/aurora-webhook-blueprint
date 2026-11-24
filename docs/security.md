@@ -16,6 +16,16 @@ a replacement for raw-body signatures. Preserve exact bytes and signature
 headers through the proxy. A source-accepted `https://…ts.net` URL is not actual
 Aurora device/VPN delivery proof.
 
+Enterprise proof is separate: this source contains a [local fixture profile](enterprise-local-v1.md)
+with Ed25519 verification against offline-pinned public keys, exact tenant and
+receiver binding, immutable verified employee IDs and short-lived,
+manifest-bound replay. Persisted identity authenticates the *uploader*; it
+does not validate unchecked meeting statements, transcripts, a claimed sale,
+or participant consent. The local profile and public fixture must not be
+trusted with real customer data. A production instance is not a WorkOS verifier
+and would not need issuer private keys, WorkOS credentials or an online
+license-seat lookup. Revocation cannot retroactively erase published content.
+
 A prompt cannot guarantee prevention of prompt injection. Keep the default
 `destinations: []` unless a destination is wanted. For processing, prefer
 read-only proposals and human approval before effects. Enforce action identity
@@ -114,6 +124,15 @@ copies, profile state, backups or migration files. Capacity/storage admission
 failures return 503. Monitor real free space and availability. An offline host
 is not a durable cloud relay; Aurora has a finite retry budget.
 
+Enterprise uses its own logical recording, manifest, record and replay budget;
+the consumer caps are unchanged. An audio receipt reserves its declared
+length. Media files live under the private `enterprise-media` directory;
+never serve that directory publicly or allow other processes to write there.
+Expiry fences incomplete uploads before removing their files and releases
+capacity only after cleanup. Dedicated Enterprise work bounds memory by chunk
+size and intake slots. A normal process restart reconciles interrupted writes;
+physical power-loss guarantees still depend on storage and OS behavior.
+
 ## Independent delivery and ambiguous failures
 
 Each destination owns its own durable delivery state; a stalled destination
@@ -179,6 +198,14 @@ metadata can still be identifying. `export --output NEW_FILE` creates sensitive
 whole-inbox snapshot while the receiver is changing. All exports have their
 own access/deletion policy. Never attach real exports to public bug reports.
 
+`enterprise-export` is an offline, explicit handoff of a **completed, retained**
+bundle. It writes verified attribution separately from untrusted manifest
+content. Give downstream processors read-only access to the bundle, not write
+access to the inbox or its service account. The receiver does not enqueue a
+consumer folder or agent job, run an agent, or backfill. Grant independent
+consumers access only after reviewing disclosure, tools, provider and
+retention. Copied data has separate deletion obligations.
+
 ## Offline maintenance, backup and migration
 
 Read-only `status/list/show/result/legacy-result/export` can coexist with `serve`.
@@ -196,6 +223,16 @@ workers. Restore itself has no dedicated CLI command: deployment-specific
 file replacement, private permissions and absolute config paths must be
 reviewed offline. Never run two receivers against a restored clone with
 active destinations.
+
+Back up before applying the schema v1 → v2 upgrade; see the
+[offline upgrade steps](getting-started.md#upgrade-a-rust-schema-v1-inbox).
+For a v2 inbox with Enterprise media, `backup` verifies the SQLite snapshot
+but does **not** copy audio. With the receiver and other admin commands
+stopped, include the entire private `enterprise-media` tree (if present) and
+the approved config in the same backup set. Preserve permissions and names,
+encrypt the backup, and restore the matching SQLite/media pair offline.
+Restoring old SQLite alone can lose newer upload/deduplication state and cannot
+restore missing audio. Test recovery with disposable data before trusting it.
 
 For Go 0.1.0 migration, keep an untouched stopped bbolt backup. Use the
 read-only exporter and explicit `import-go --approve` procedure in

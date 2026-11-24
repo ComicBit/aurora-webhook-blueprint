@@ -1,9 +1,42 @@
 # Verification evidence
 
-Evidence is version-specific. **Current Rust 0.2.1 source is not the historical
-0.2.0 Rust or Go 0.1.0 binary.** Each record retains its own scope. A configured
+Evidence is version-specific. **Current development source is not a tagged
+Rust or Go preview.** Each record retains its own scope. A configured
 workflow, local preflight or process double does not establish a passing hosted
 build, actual model behavior or device delivery.
+
+## Unreleased Enterprise local v1
+
+On macOS arm64 with Rust/Cargo 1.98.1, `cargo test --locked` passed all
+**56 tests**; Rustfmt and strict Clippy (`--all-targets -- -D warnings`) passed.
+The suite includes the consumer regressions, independent OpenSSL proof and
+rotation vectors, replay capacity, simulated interruption before chunk receipt
+and after media publication, expiry recovery, full-space error mapping, and a
+populated v1 migration with backup and preserved destination state.
+
+The optimized locked build also passed. An isolated process check used the
+published macOS arm64 v0.2.1 preview binary to populate a v1 inbox, made a
+backup, migrated with the new binary, and restored the backup with v0.2.1.
+Consumer HMAC, stale timestamp and separate bearer checks, changed-byte
+conflict, exact duplicate handling, zero-work probes, the 8 MiB limit and
+folder delivery history were preserved.
+
+The loopback process check uploaded a **220 MiB** synthetic WAV through the
+optimized receiver; measured peak receiver RSS was **10.7 MiB**. It verified
+two distinct employee IDs in SQLite, a subsequent outcome revision, a
+zero-write probe with a consumer folder configured, resume after SIGKILL
+and proof expiry, changed/reordered/duplicate chunk handling, idempotent
+finalize, and a private exact-byte export. It also observed `429` for
+concurrent intake saturation, `413` for the configured artifact limit, `507`
+for the configured storage budget, and partial-media removal at expiry.
+The documented SQL returned the latest retained outcome with its verified
+employee, rather than an older `won` answer.
+
+This qualifies the local fixture profile only. No Operations-minted staging
+proof or native Company Sync contract was available. Real iOS/macOS and
+private VPN interoperability, actual full-filesystem behavior, physical
+power-loss durability, Linux runtime and hosted CI are not established.
+No GitHub release was created.
 
 ## Rust 0.2.1 credential verification
 

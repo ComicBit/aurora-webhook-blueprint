@@ -1,7 +1,10 @@
 # Payload contract and quality assessment
 
-This blueprint targets Aurora's `meeting.completed` JSON, schema major 1.
-Reviewed 2026-10-31. All repository examples are synthetic. No audio is sent.
+The consumer webhook targets Aurora's `meeting.completed` JSON, schema major 1.
+Reviewed 2026-10-31. All examples are synthetic. The consumer webhook sends no
+audio and does not verify employee identities. The distinct [Enterprise local v1
+protocol](enterprise-local-v1.md) covers proof-bound employee, text, audio and
+sales outcomes and never extends or replaces this schema.
 
 ## Envelope and delivery
 

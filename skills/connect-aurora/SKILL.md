@@ -25,9 +25,10 @@ and config. Other paths below are relative to that root:
 
 If copied without the repository, obtain the public kit from
 https://github.com/ComicBit/aurora-webhook-blueprint and read those resources;
-do not invent missing flags. Current Rust 0.2.1 source, old 0.2.0 Rust binaries
-and historical Go 0.1.0 binaries differ. The upcoming v0.2.1 preview is not
-published evidence; 0.2.0 binaries do not support dotenv loading or `token-gen`.
+do not invent missing flags. Current Rust source is distinct from the
+published v0.2.1, v0.2.0 and Go v0.1.0 previews. The consumer inbox remains
+supported; back up a schema v1 inbox before the offline `apply --approve`
+upgrade. See `docs/getting-started.md` for migration and rollback.
 
 ## Establish only decisions that belong to the user
 

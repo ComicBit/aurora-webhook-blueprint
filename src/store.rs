@@ -16,7 +16,8 @@ use std::{
 };
 use uuid::Uuid;
 
-const SCHEMA_VERSION: i64 = 1;
+const SCHEMA_VERSION: i64 = 2;
+const ENTERPRISE_MIGRATION: &str = include_str!("../migrations/002-enterprise.sql");
 const MAX_ATTEMPTS: i64 = 10;
 const MAX_PLANS: i64 = 100;
 const WAL_HIGH_WATER: u64 = 64 * 1024 * 1024;
@@ -209,6 +210,19 @@ fn inspect_private(path: &Path, allow_missing: bool) -> Result<()> {
     Ok(())
 }
 
+pub(crate) fn checkpoint_wal(db: &Connection, bytes: u64, force: bool) -> Result<bool> {
+    if !force && bytes < WAL_CHECKPOINT_THRESHOLD {
+        return Ok(true);
+    }
+    // PASSIVE never waits for a reader or writer. A fully copied WAL can
+    // be reused by the next write even before its allocated file shrinks.
+    let (_busy, frames, copied): (i64, i64, i64) =
+        db.query_row("PRAGMA wal_checkpoint(PASSIVE)", [], |r| {
+            Ok((r.get(0)?, r.get(1)?, r.get(2)?))
+        })?;
+    Ok(bytes < WAL_HIGH_WATER || frames <= copied)
+}
+
 impl Store {
     pub fn open(input: &Config, mode: Mode) -> Result<Self> {
         input.validate()?;
@@ -253,11 +267,20 @@ impl Store {
             connection.pragma_query_value(None, "foreign_keys", |r| r.get(0))?;
         ensure!(foreign_keys == 1, "SQLite foreign keys unavailable");
         let version: i64 = connection.pragma_query_value(None, "user_version", |r| r.get(0))?;
-        ensure!(
-            version == SCHEMA_VERSION || (version == 0 && mode == Mode::Apply),
-            "unsupported inbox schema"
-        );
-        if version == SCHEMA_VERSION {
+        match version {
+            SCHEMA_VERSION => {
+                connection
+                    .prepare("SELECT 1 FROM enterprise_receipts LIMIT 0")
+                    .context("unsupported Enterprise inbox schema")?;
+            }
+            1 if mode == Mode::Serve => bail!(
+                "inbox schema v1 needs an offline upgrade; back up with `backup`, then review `plan` and run `apply --approve`"
+            ),
+            1 => {}
+            0 if mode == Mode::Apply => {}
+            _ => bail!("unsupported inbox schema"),
+        }
+        if version != 0 {
             Self::usage(&connection).context("unsupported inbox accounting schema")?;
             connection.prepare("SELECT original_state,original_result_digest,result FROM legacy_history LIMIT 0").context("unsupported inbox legacy schema")?;
         }
@@ -301,6 +324,11 @@ impl Store {
                 tx.execute_batch(SCHEMA)?;
                 tx.execute("INSERT INTO metadata VALUES('receiver_id',?1)", [id()])?;
             }
+            if version < SCHEMA_VERSION && mode == Mode::Apply {
+                tx.execute_batch(ENTERPRISE_MIGRATION)
+                    .context("cannot migrate inbox to schema v2; preserve the original backup")?;
+                tx.pragma_update(None, "user_version", SCHEMA_VERSION)?;
+            }
             if mode == Mode::Apply {
                 let digest = input.digest()?;
                 tx.execute("INSERT OR IGNORE INTO configurations(digest,snapshot,approved_at) VALUES(?1,?2,?3)",params![digest,serde_json::to_string(input)?,now()])?;
@@ -343,6 +371,23 @@ impl Store {
             receiver_id,
             claim_cursor: 0,
         })
+    }
+
+    pub(crate) fn enterprise_needed(&self) -> Result<bool> {
+        let version: i64 = self
+            .connection
+            .pragma_query_value(None, "user_version", |row| row.get(0))?;
+        if version < SCHEMA_VERSION {
+            return Ok(false);
+        }
+        if self.config.enterprise_local_v1.is_some() {
+            return Ok(true);
+        }
+        Ok(self.connection.query_row(
+            "SELECT EXISTS(SELECT 1 FROM enterprise_receipts) OR EXISTS(SELECT 1 FROM enterprise_replay)",
+            [],
+            |row| row.get(0),
+        )?)
     }
 
     fn writable(&self) -> Result<()> {
@@ -400,17 +445,7 @@ impl Store {
             Err(error) if error.kind() == std::io::ErrorKind::NotFound => 0,
             Err(_) => bail!("cannot inspect inbox WAL"),
         };
-        if !force && bytes < WAL_CHECKPOINT_THRESHOLD {
-            return Ok(true);
-        }
-        // PASSIVE never waits for a reader or writer. A fully copied WAL can
-        // be reused by the next write even before its allocated file shrinks.
-        let (_busy, frames, copied): (i64, i64, i64) =
-            self.connection
-                .query_row("PRAGMA wal_checkpoint(PASSIVE)", [], |r| {
-                    Ok((r.get(0)?, r.get(1)?, r.get(2)?))
-                })?;
-        Ok(bytes < WAL_HIGH_WATER || frames <= copied)
+        checkpoint_wal(&self.connection, bytes, force)
     }
 
     pub fn accept(&mut self, event: VerifiedEvent, at: i64) -> Result<Acceptance> {
@@ -1843,12 +1878,104 @@ mod tests {
     }
 
     #[test]
+    fn offline_v1_upgrade_and_backup_preserve_consumer_contract() {
+        let inbox = Inbox::new(1);
+        let config = &inbox.config;
+        security::private_directory(&config.data_dir).unwrap();
+        let path = config.data_dir.join("inbox.sqlite3");
+        security::private_file(&path, true).unwrap();
+        let legacy = Connection::open(path).unwrap();
+        legacy.execute_batch(SCHEMA).unwrap();
+        let digest = config.digest().unwrap();
+        legacy
+            .execute(
+                "INSERT INTO metadata VALUES ('receiver_id','legacy-receiver'),('active_config',?1)",
+                [&digest],
+            )
+            .unwrap();
+        legacy
+            .execute(
+                "INSERT INTO configurations VALUES (?1,?2,10)",
+                params![digest, serde_json::to_string(config).unwrap()],
+            )
+            .unwrap();
+        drop(legacy);
+
+        let original = event("v1-delivered", "meeting", false);
+        let mut old = Store::open(config, Mode::Admin).unwrap();
+        old.accept(event("v1-delivered", "meeting", false), 10)
+            .unwrap();
+        let delivery = old.claim(&[], 11).unwrap().unwrap();
+        finish(&mut old, &delivery, OutcomeKind::Completed, 12);
+        old.accept(event("v1-pending", "another-meeting", false), 13)
+            .unwrap();
+        let before = old.status(14).unwrap();
+        let backup_root = config.data_dir.parent().unwrap().join("backup");
+        security::private_directory(&backup_root).unwrap();
+        old.backup(&backup_root.join("inbox.sqlite3")).unwrap();
+        drop(old);
+
+        assert!(
+            Store::open(config, Mode::Serve)
+                .err()
+                .unwrap()
+                .to_string()
+                .contains("apply --approve")
+        );
+        let before_backup = Connection::open_with_flags(
+            backup_root.join("inbox.sqlite3"),
+            OpenFlags::SQLITE_OPEN_READ_ONLY,
+        )
+        .unwrap();
+        assert_eq!(
+            before_backup
+                .query_row("PRAGMA user_version", [], |row| row.get::<_, i64>(0))
+                .unwrap(),
+            1
+        );
+        assert_eq!(
+            before_backup
+                .query_row(
+                    "SELECT raw FROM events WHERE event_id='v1-delivered'",
+                    [],
+                    |row| row.get::<_, Vec<u8>>(0)
+                )
+                .unwrap(),
+            original.body
+        );
+
+        drop(Store::open(config, Mode::Apply).unwrap());
+        let mut migrated = Store::open(config, Mode::Serve).unwrap();
+        assert_eq!(migrated.status(14).unwrap(), before);
+        assert_eq!(migrated.raw("v1-delivered", 14).unwrap(), original.body);
+        assert_eq!(
+            migrated.result(&delivery.delivery_id, 14).unwrap(),
+            b"result"
+        );
+        assert_eq!(
+            migrated.accept(original, 15).unwrap(),
+            Acceptance::Duplicate
+        );
+        assert_eq!(
+            migrated
+                .accept(event("v1-delivered", "changed", false), 15)
+                .unwrap(),
+            Acceptance::Conflict
+        );
+        assert_eq!(
+            migrated.claim(&[], 15).unwrap().unwrap().event_id,
+            "v1-pending"
+        );
+        assert!(!migrated.enterprise_needed().unwrap());
+    }
+
+    #[test]
     fn schema_newer_than_binary_and_database_symlinks_fail_closed() {
         let inbox = Inbox::new(0);
         let store = inbox.open();
         store
             .connection
-            .pragma_update(None, "user_version", 2)
+            .pragma_update(None, "user_version", 3)
             .unwrap();
         drop(store);
         assert!(Store::open(&inbox.config, Mode::Admin).is_err());

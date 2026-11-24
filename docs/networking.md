@@ -72,6 +72,18 @@ service to the public internet. The last mode configured on a port determines
 its exposure. If private delivery fails, diagnose connectivity, do not make
 the receiver public or weaken Aurora's URL validation.
 
+## Enterprise local v1 staging
+
+The opt-in [Enterprise local v1 routes](enterprise-local-v1.md) share the literal
+loopback listener, not the consumer path or its HMAC. Route `/v1/enterprise/`
+over a private, authenticated VPN proxy only. Preserve the request method,
+path, `Authorization`, `Content-Type`, `x-aurora-chunk-sha256`, and exact body;
+disable credential/body logging and transformations. A proxy should allow a
+1 MiB request body and enough time for one complete chunk and durable receipt.
+No one request carries an entire recording. Start with loopback; a successful
+local or private-HTTPS synthetic check does not prove Operations/native
+interoperability. Do not point a real Company Sync setting at this local profile.
+
 ## Availability and compatibility checks
 
 Keep the host awake, receiver supervised, tailnet connected and node credentials

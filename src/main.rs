@@ -1,5 +1,8 @@
 mod config;
 mod dispatch;
+mod enterprise_auth;
+mod enterprise_http;
+mod enterprise_store;
 mod env_file;
 mod exports;
 mod intake;
@@ -79,6 +82,12 @@ enum Command {
     Expire,
     /// Export normalized JSONL, not signed-raw backup. Requires a NEW private output file.
     Export {
+        #[arg(long)]
+        output: PathBuf,
+    },
+    /// Export a completed Enterprise event and its verified identity to a new private directory.
+    EnterpriseExport {
+        event_id: String,
         #[arg(long)]
         output: PathBuf,
     },
@@ -208,7 +217,13 @@ async fn run(cli: Cli) -> Result<()> {
                 &serde_json::json!({"checks":checks,"network_or_inference_calls":0,"note":"Local inspection is not actual agent policy, authentication or app/VPN delivery proof."}),
             )
         }
-        Command::Serve => server::serve(cfg, intake::Secrets::load()?).await,
+        Command::Serve => {
+            let secrets = cfg
+                .consumer_enabled
+                .then(intake::Secrets::load)
+                .transpose()?;
+            server::serve(cfg, secrets).await
+        }
         Command::Status => {
             let s = Store::open(&cfg, Mode::ReadOnly)?;
             print_json(&s.status(model::now())?)
@@ -261,6 +276,9 @@ async fn run(cli: Cli) -> Result<()> {
         Command::Expire => {
             let mut s = Store::open(&cfg, Mode::Admin)?;
             s.expire(model::now())?;
+            if s.enterprise_needed()? {
+                enterprise_store::EnterpriseStore::open(&s.config)?.expire(model::now())?;
+            }
             print_json(&s.status(model::now())?)
         }
         Command::Backup { output } => {
@@ -270,6 +288,19 @@ async fn run(cli: Cli) -> Result<()> {
                 "Consistent private backup created. Restore only with destinations disabled and external effects reconciled."
             );
             Ok(())
+        }
+        Command::EnterpriseExport { event_id, output } => {
+            ensure!(
+                enterprise_auth::valid_uuid(&event_id),
+                "invalid Enterprise event ID"
+            );
+            let store = Store::open(&cfg, Mode::Admin)?;
+            ensure!(store.enterprise_needed()?, "no Enterprise event available");
+            enterprise_store::EnterpriseStore::open(&store.config)?.export(
+                &event_id,
+                &absolute_output(&output)?,
+                model::now(),
+            )
         }
         Command::Export { output } => {
             let s = Store::open(&cfg, Mode::ReadOnly)?;

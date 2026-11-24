@@ -22,6 +22,10 @@ pub struct Config {
     pub max_connections: usize,
     pub min_free_bytes: u64,
     pub destinations: Vec<Destination>,
+    #[serde(skip_serializing_if = "is_true")]
+    pub consumer_enabled: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub enterprise_local_v1: Option<crate::enterprise_auth::EnterpriseConfig>,
 }
 impl Default for Config {
     fn default() -> Self {
@@ -39,8 +43,14 @@ impl Default for Config {
             max_connections: 64,
             min_free_bytes: 256 << 20,
             destinations: vec![],
+            consumer_enabled: true,
+            enterprise_local_v1: None,
         }
     }
+}
+
+fn is_true(value: &bool) -> bool {
+    *value
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -242,6 +252,13 @@ impl Config {
             "listen must be a literal loopback address and port"
         );
         ensure!(self.data_dir.is_absolute(), "data_dir must be absolute");
+        ensure!(
+            self.consumer_enabled || self.enterprise_local_v1.is_some(),
+            "at least one webhook intake must be enabled"
+        );
+        if let Some(enterprise) = &self.enterprise_local_v1 {
+            enterprise.validate()?;
+        }
         ensure!(
             (1..=315360000).contains(&self.retention_seconds),
             "invalid retention_seconds"

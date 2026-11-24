@@ -19,11 +19,13 @@ scope; local-only versus approved provider disclosure; actual target authority;
 retention/backups; and the receiving host/private connectivity. Don't quiz me
 on database internals, queues, flags or choices the kit already makes safely.
 
-Start with the current Rust 0.2.1 source, signed database-only receipt and
+Start with the current Rust source, signed consumer database-only receipt and
 `destinations: []`, no model account or latent jobs. Offer a private folder
 export if original JSON/literal Markdown meets my goal without inference.
 Keep historical Go 0.1.0 release binaries and their migration separate. Use
 `plan`, then offline `apply --approve`; editing a file alone is not activation.
+For an existing Rust schema v1 inbox, stop it and make a private backup before
+applying the [schema v2 upgrade](../docs/getting-started.md#upgrade-a-rust-schema-v1-inbox).
 `doctor` checks local prerequisites without network/auth/model calls and is
 not proof of a real provider or policy boundary.
 
@@ -43,7 +45,7 @@ In 0.2.1 serve/doctor load .env beside the selected config; --env-file PATH
 selects an explicit required file. Inherited process values override it and a
 restart reloads it. Other commands do not load .env; only key generators are
 independent of configuration too.
-Old 0.2.0 binaries do not implement this feature; use 0.2.1 source or its preview.
+Old 0.2.0 binaries do not implement this feature; use current source or the 0.2.1 preview.
 The Python synthetic sender uses process environment only: securely capture
 its values without shell-sourcing .env or inventing a secret-capture tool.
 

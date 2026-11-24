@@ -1,5 +1,16 @@
 # Changelog
 
+## Unreleased — Enterprise Company Sync local adapter
+
+- Added an opt-in, loopback/private-ingress Enterprise v1 namespace with
+  pinned Ed25519 employee proof, authenticated receipts, resumable audio,
+  bounded retention and explicit offline exports. Enterprise never triggers
+  automatic destinations. The wire profile is synthetic and not approved for
+  Operations API or native client use.
+- Added explicit offline SQLite schema v1 → v2 migration. Back up before
+  `apply --approve`; consumer route, authentication, payload caps and receipts
+  are unchanged. Tagged v0.2.1 binaries predate schema v2 and the local adapter.
+
 ## 0.2.1 — Credential onboarding
 
 - Refreshed the README with prominent setup, Aurora and Tailscale links, a

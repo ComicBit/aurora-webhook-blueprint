@@ -280,6 +280,14 @@ fn trusted_directory(fd: &OwnedFd, private: bool) -> Result<()> {
 
 /// Open every path component relative to an already held descriptor; never follow symlinks.
 pub(crate) fn open_root(path: &Path, create: bool) -> Result<OwnedFd> {
+    open_directory(path, create, true)
+}
+
+pub(crate) fn open_trusted_root(path: &Path) -> Result<OwnedFd> {
+    open_directory(path, false, false)
+}
+
+fn open_directory(path: &Path, create: bool, private_leaf: bool) -> Result<OwnedFd> {
     let clean = crate::security::absolute_clean(path)?;
     let mut dir = fs::open(
         "/",
@@ -311,7 +319,7 @@ pub(crate) fn open_root(path: &Path, create: bool) -> Result<OwnedFd> {
             }
             Err(e) => return Err(e.into()),
         };
-        trusted_directory(&dir, i + 1 == parts.len())?;
+        trusted_directory(&dir, private_leaf && i + 1 == parts.len())?;
     }
     Ok(dir)
 }

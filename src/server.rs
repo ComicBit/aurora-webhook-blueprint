@@ -1,5 +1,8 @@
 use crate::{
     config::Config,
+    enterprise_auth::Verifier,
+    enterprise_http,
+    enterprise_store::EnterpriseStore,
     intake::{self, Secrets},
     model::{self, Acceptance, DeliveryJob, DeliveryOutcome, MAX_BODY, OutcomeKind, VerifiedEvent},
     store::{Mode, Store},
@@ -212,19 +215,35 @@ async fn worker(db: Database, limit: usize, cancel: CancellationToken) -> Result
     operation.and(settlement)
 }
 
-pub async fn serve(config: Config, secrets: Secrets) -> Result<()> {
+pub async fn serve(config: Config, secrets: Option<Secrets>) -> Result<()> {
+    let enterprise_intake = config
+        .enterprise_local_v1
+        .as_ref()
+        .map(|cfg| Verifier::new(cfg).map(|verifier| (verifier, cfg.max_concurrent_requests)))
+        .transpose()?;
     let (tx, mut rx) = mpsc::channel(32);
     let (ready_tx, ready_rx) = oneshot::channel();
     let dbconfig = config.clone();
     let dbtask = tokio::task::spawn_blocking(move || -> Result<()> {
-        let mut store = match Store::open(&dbconfig, Mode::Serve) {
-            Ok(s) => s,
+        let open = || -> Result<_> {
+            let store = Store::open(&dbconfig, Mode::Serve)?;
+            let enterprise = if store.enterprise_needed()? {
+                Some(EnterpriseStore::open(&store.config)?)
+            } else {
+                None
+            };
+            Ok((store, enterprise))
+        };
+        let (mut store, enterprise) = match open() {
+            Ok(opened) => opened,
             Err(e) => {
                 let _ = ready_tx.send(Err(e));
                 return Ok(());
             }
         };
-        let _ = ready_tx.send(Ok(()));
+        if ready_tx.send(Ok(enterprise)).is_err() {
+            return Ok(());
+        }
         while let Some(command) = rx.blocking_recv() {
             match command {
                 Command::Accept(e, reply) => {
@@ -243,25 +262,36 @@ pub async fn serve(config: Config, secrets: Secrets) -> Result<()> {
         }
         Ok(())
     });
-    ready_rx.await.context("database startup interrupted")??;
+    let enterprise_store = ready_rx.await.context("database startup interrupted")??;
     let db = Database { tx };
     let cancellation = CancellationToken::new();
     let _cancel_on_exit = cancellation.clone().drop_guard();
     let listener = tokio::net::TcpListener::bind(config.listen)
         .await
         .context("cannot bind loopback listener")?;
-    let app = Router::new()
-        .route("/webhooks/aurora", post(receive))
-        .route(
-            "/healthz",
-            get(|| async { response(StatusCode::OK, "ready") }),
-        )
-        .with_state(App {
-            db: db.clone(),
-            secrets: Arc::new(secrets),
-            permits: Arc::new(Semaphore::new(config.max_concurrent_requests)),
-        });
+    let app = Router::new().route(
+        "/healthz",
+        get(|| async { response(StatusCode::OK, "ready") }),
+    );
+    let app = match secrets {
+        Some(secrets) => app.merge(
+            Router::new()
+                .route("/webhooks/aurora", post(receive))
+                .with_state(App {
+                    db: db.clone(),
+                    secrets: Arc::new(secrets),
+                    permits: Arc::new(Semaphore::new(config.max_concurrent_requests)),
+                }),
+        ),
+        None => app,
+    };
     let mut term = tokio::signal::unix::signal(tokio::signal::unix::SignalKind::terminate())?;
+    let (app, enterprise) = if let Some(store) = enterprise_store {
+        let (routes, background) = enterprise_http::start(store, enterprise_intake);
+        (app.merge(routes), Some(background))
+    } else {
+        (app, None)
+    };
     let mut worker = tokio::spawn(worker(
         db.clone(),
         config.max_active_deliveries,
@@ -302,10 +332,21 @@ pub async fn serve(config: Config, secrets: Secrets) -> Result<()> {
     drop(listener);
     drop(app);
     while tasks.join_next().await.is_some() {}
-    if !worker_exited {
-        worker.await.context("worker shutdown failed")??;
-    }
+    let worker_result = if worker_exited {
+        Ok(())
+    } else {
+        worker
+            .await
+            .context("worker shutdown failed")
+            .and_then(|result| result)
+    };
+    let enterprise_result = match enterprise {
+        Some(background) => background.shutdown().await,
+        None => Ok(()),
+    };
     drop(db);
     dbtask.await.context("database owner shutdown failed")??;
+    worker_result?;
+    enterprise_result?;
     outcome
 }

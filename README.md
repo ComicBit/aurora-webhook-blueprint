@@ -31,7 +31,8 @@ on-device processing works offline after model setup.
 This open-source blueprint is the next part of that workflow: a small,
 self-hosted receiver for the transcripts, summaries and action items you choose
 to export. Start with a private inbox. Add agent processing only when you know
-what you want it to do and where the data may go. **No audio is sent.**
+what you want it to do and where the data may go. **The consumer webhook sends
+no audio.**
 
 > **Looking for the app?** Aurora's iPhone beta is available by personal
 > TestFlight invitation. [Join the waitlist](https://auroraisyours.com/#waitlist)
@@ -87,7 +88,7 @@ Use the **[getting-started guide](docs/getting-started.md)** for the complete
 signed, database-only setup, a synthetic delivery check and an optional folder
 destination.
 
-Build the current **Rust 0.2.1 source** with Rust 1.98 and a native C toolchain
+Build the current **Rust development source** with Rust 1.98 and a native C toolchain
 (SQLite is bundled):
 
 ```sh
@@ -112,6 +113,16 @@ does **not** load `.env` or provide `token-gen`. See the
 Existing [v0.1.0 downloads](https://github.com/ComicBit/aurora-webhook-blueprint/releases/tag/v0.1.0)
 are the earlier Go receiver. Do not mix their configuration or commands;
 [migrate retained history explicitly](docs/getting-started.md#migrate-from-the-go-010-inbox).
+
+### Enterprise Company Sync (local integration only)
+
+The current source also has a separate, opt-in [Enterprise local v1 receiver](docs/enterprise-local-v1.md).
+It verifies a signed employee UUID locally and supports resumable audio,
+notes and a sales outcome. It does not send data to Aurora servers or run
+destinations automatically. The local signer and examples are synthetic:
+**do not use this adapter with customer recordings** until the Operations API
+and native clients have a frozen, staging-verified contract. Tagged v0.2.1
+binaries do not contain this adapter. [Back up and upgrade schema v1 offline](docs/getting-started.md#upgrade-a-rust-schema-v1-inbox).
 
 ## How it works
 
@@ -156,6 +167,7 @@ offline transport, and prompt instructions are not a security boundary. Read
 | Set up private HTTPS with my VPN or Tailscale | [Private networking](docs/networking.md) |
 | Choose an agent operation and review its authority | [Agent guide](docs/agents.md) |
 | Understand the event fields and their limits | [Payload contract](docs/payload.md) |
+| Try the local Enterprise protocol or inspect its wire contract | [Enterprise local v1](docs/enterprise-local-v1.md) |
 | Plan storage, consent, deletion and recovery | [Security and operations](docs/security.md) |
 | Check what has actually been exercised | [Verification evidence](docs/verification.md) |
 
